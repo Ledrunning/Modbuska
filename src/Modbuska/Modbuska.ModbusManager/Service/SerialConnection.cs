@@ -1,7 +1,8 @@
 ﻿using System.IO.Ports;
 using Microsoft.Extensions.Logging;
+using Modbuska.ModbusManager.Model;
 
-namespace Modbuska.ModbusManager;
+namespace Modbuska.ModbusManager.Service;
 
 public class SerialConnection(SerialPort? serialPort, ILogger logger, CancellationTokenSource? cts)
 {
@@ -9,12 +10,11 @@ public class SerialConnection(SerialPort? serialPort, ILogger logger, Cancellati
     ///     Using
     ///     await ReadAsync(data => { Console.WriteLine($"Data: {BitConverter.ToString(data)}");
     /// </summary>
-    /// <param name="onData">Lamda or method puts inside</param>
+    /// <param name="onData">Lambda or method puts inside</param>
     /// <param name="bufferSize">receiving buffer size</param>
     public async Task ReadAsync(Action<byte[]> onData, int bufferSize = 64)
     {
         var buffer = new byte[bufferSize];
-
         try
         {
             while (cts is { Token.IsCancellationRequested: false })
@@ -24,9 +24,9 @@ public class SerialConnection(SerialPort? serialPort, ILogger logger, Cancellati
                     .ReadAsync(buffer, cts.Token);
                 if (bytesRead > 0)
                 {
-                    var actual = new byte[bytesRead];
-                    Array.Copy(buffer, actual, bytesRead);
-                    onData?.Invoke(actual);
+                    var actualData = new byte[bytesRead];
+                    Array.Copy(buffer, actualData, bytesRead);
+                    onData?.Invoke(actualData);
                 }
             }
         }
@@ -49,7 +49,7 @@ public class SerialConnection(SerialPort? serialPort, ILogger logger, Cancellati
         cts?.Cancel();
     }
 
-    public bool Open(string portName, int baudRate, int databits, Parity parity, StopBits stopBits)
+    public bool Open(SerialPortSettings portSettings)
     {
         //Ensure port isn't already opened:
         if (serialPort is not { IsOpen: false })
@@ -58,13 +58,13 @@ public class SerialConnection(SerialPort? serialPort, ILogger logger, Cancellati
         }
 
         //Assign desired settings to the serial port:
-        serialPort.PortName = portName;
-        serialPort.BaudRate = baudRate;
-        serialPort.DataBits = databits;
-        serialPort.Parity = parity;
-        serialPort.StopBits = stopBits;
-        //These timeouts are default and cannot be editted through the class at this point:
-        serialPort.ReadTimeout = 100;
+        serialPort.PortName = portSettings.PortName;
+        serialPort.BaudRate = portSettings.BaudRate;
+        serialPort.DataBits = portSettings.DataBits;
+        serialPort.Parity = portSettings.Parity;
+        serialPort.StopBits = portSettings.StopBits;
+        //These timeouts are default and cannot be edited through the class at this point:
+        serialPort.ReadTimeout = 100; // todo move to settings
         serialPort.WriteTimeout = 100;
 
         try
