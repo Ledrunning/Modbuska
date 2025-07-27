@@ -4,101 +4,169 @@ using Modbuska.ModbusManager.Model;
 
 namespace Modbuska.ModbusManager.Service;
 
-public class SerialConnection(SerialPort? serialPort, ILogger logger, CancellationTokenSource? cts)
+public class SerialConnection(SerialPort serialPort, ILogger logger, CancellationTokenSource? cts)
 {
+    private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly SerialPort _serialPort = serialPort ?? throw new ArgumentNullException(nameof(serialPort));
+    private CancellationTokenSource? _cts;
+    public bool IsSerialPortOpen => _serialPort.IsOpen;
+
+    public event Action<byte[]>? DataReceived;
+
+    public void DiscardSerialBuffers()
+    {
+        _serialPort.DiscardOutBuffer();
+        _serialPort.DiscardInBuffer();
+        _logger.LogInformation("Discard In / Out serial buffers.");
+    }
+
     /// <summary>
-    ///     Using
-    ///     await ReadAsync(data => { Console.WriteLine($"Data: {BitConverter.ToString(data)}");
+    ///     Starts asynchronous reading from the serial port.
     /// </summary>
-    /// <param name="onData">Lambda or method puts inside</param>
-    /// <param name="bufferSize">receiving buffer size</param>
-    public async Task ReadAsync(Action<byte[]> onData, int bufferSize = 64)
+    public void StartReading(int bufferSize = 64)
+    {
+        if (_cts != null)
+        {
+            _logger.LogWarning("Reading already started.");
+            return;
+        }
+
+        if (!_serialPort.IsOpen)
+        {
+            _logger.LogError("Cannot start reading. Serial port is not open.");
+            return;
+        }
+
+        _cts = new CancellationTokenSource();
+        Task.Run(() => ReadLoopAsync(bufferSize, _cts.Token));
+    }
+
+    /// <summary>
+    ///     Stops asynchronous reading from the serial port.
+    /// </summary>
+    public void StopReading()
+    {
+        if (_cts == null)
+        {
+            return;
+        }
+
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = null;
+        _logger.LogInformation("Stopped reading from serial port.");
+    }
+
+    /// <summary>
+    ///     The background loop that reads from the serial port.
+    /// </summary>
+    private async Task ReadLoopAsync(int bufferSize, CancellationToken token)
     {
         var buffer = new byte[bufferSize];
+
         try
         {
-            while (cts is { Token.IsCancellationRequested: false })
+            while (!token.IsCancellationRequested)
             {
-                var bytesRead = await (serialPort?.BaseStream
-                                       ?? throw new InvalidOperationException("Serial port is not available"))
-                    .ReadAsync(buffer, cts.Token);
+                if (!_serialPort.IsOpen)
+                {
+                    _logger.LogWarning("Serial port was closed during reading. Exiting read loop.");
+                    break;
+                }
+
+                var bytesRead = await _serialPort.BaseStream.ReadAsync(buffer, token);
                 if (bytesRead > 0)
                 {
-                    var actualData = new byte[bytesRead];
-                    Array.Copy(buffer, actualData, bytesRead);
-                    onData?.Invoke(actualData);
+                    var actualData = buffer[..bytesRead];
+                    DataReceived?.Invoke(actualData);
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            // To do logger
-            logger?.LogError("Read operation was cancelled.");
+            _logger.LogInformation("Serial read operation was cancelled.");
         }
-        finally
+        catch (Exception ex)
         {
-            serialPort?.Close();
+            _logger.LogError(ex, "An error occurred while reading from the serial port.");
+        }
+    }
+
+    public byte[] ReadExact(int length)
+    {
+        var buffer = new byte[length];
+        var offset = 0;
+
+        while (offset < length)
+        {
+            var read = _serialPort.Read(buffer, offset, length - offset);
+            if (read == 0)
+            {
+                throw new IOException("Serial port returned 0 bytes. Connection may be closed.");
+            }
+
+            offset += read;
+        }
+
+        return buffer;
+    }
+
+    public void WriteData(byte[] data)
+    {
+        _serialPort.Write(data, 0, data.Length);
+    }
+
+    /// <summary>
+    ///     Opens the serial port using specified settings.
+    /// </summary>
+    public bool Open(SerialPortSettings portSettings)
+    {
+        if (_serialPort.IsOpen)
+        {
+            return false;
+        }
+
+        _serialPort.PortName = portSettings.PortName;
+        _serialPort.BaudRate = portSettings.BaudRate;
+        _serialPort.DataBits = portSettings.DataBits;
+        _serialPort.Parity = portSettings.Parity;
+        _serialPort.StopBits = portSettings.StopBits;
+        _serialPort.ReadTimeout = 500; // todo: move to settings
+        _serialPort.WriteTimeout = 100;
+
+        try
+        {
+            _serialPort.Open();
+            _logger.LogInformation("Serial port opened.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open serial port.");
+            return false;
         }
     }
 
     /// <summary>
-    ///     Stop reading bytes from serial
+    ///     Closes the serial port if open.
     /// </summary>
-    public void StopReading()
-    {
-        cts?.Cancel();
-    }
-
-    public bool Open(SerialPortSettings portSettings)
-    {
-        //Ensure port isn't already opened:
-        if (serialPort is not { IsOpen: false })
-        {
-            return false;
-        }
-
-        //Assign desired settings to the serial port:
-        serialPort.PortName = portSettings.PortName;
-        serialPort.BaudRate = portSettings.BaudRate;
-        serialPort.DataBits = portSettings.DataBits;
-        serialPort.Parity = portSettings.Parity;
-        serialPort.StopBits = portSettings.StopBits;
-        //These timeouts are default and cannot be edited through the class at this point:
-        serialPort.ReadTimeout = 100; // todo move to settings
-        serialPort.WriteTimeout = 100;
-
-        try
-        {
-            serialPort.Open();
-        }
-        catch (Exception err)
-        {
-            //todo log
-            return false;
-        }
-
-        //todo log
-        return true;
-    }
-
     public bool Close()
     {
-        //Ensure port is opened before attempting to close:
-        if (serialPort is not { IsOpen: true })
+        if (!_serialPort.IsOpen)
         {
             return false;
         }
 
         try
         {
-            serialPort.Close();
+            _serialPort.Close();
+            _logger.LogInformation("Serial port closed.");
+            return true;
         }
-        catch (Exception err)
+        catch (Exception ex)
         {
-            // todo log
+            _logger.LogError(ex, "Failed to close serial port.");
             return false;
         }
-
-        return true;
     }
 }
