@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.UnitTest", "Modbus
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.Example", "Modbuska.Example\Modbuska.Example.csproj", "{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.Common", "Modbuska.Common\Modbuska.Common.csproj", "{334ED422-DB5F-49A4-8D85-925DED9DB497}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{334ED422-DB5F-49A4-8D85-925DED9DB497}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{334ED422-DB5F-49A4-8D85-925DED9DB497}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{334ED422-DB5F-49A4-8D85-925DED9DB497}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{334ED422-DB5F-49A4-8D85-925DED9DB497}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
