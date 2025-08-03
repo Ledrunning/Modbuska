@@ -1,3 +1,5 @@
+using Modbuska.ModbusManager.Model;
+
 namespace Modbuska.ModbusManager.Extension;
 
 public static class ModbusExtension
@@ -32,5 +34,56 @@ public static class ModbusExtension
         crc[0] = (byte)(crcFull & 0xFF); // Crc low
 
         return crc;
+    }
+
+    public static byte[] BuildMessage(this ModbusMessage message)
+    {
+        var buffer = new byte[ModbusMessage.MessageSize];
+
+        buffer[ModbusMessage.AddressIndex] = message.Address;
+        buffer[ModbusMessage.TypeIndex] = message.Type;
+        buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> 8);
+        buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
+        buffer[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> 8);
+        buffer[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
+
+        var crc = buffer.ComputeCrc();
+        buffer[^2] = crc[0];
+        buffer[^1] = crc[1];
+
+        return buffer;
+    }
+
+    public static byte[] BuildMessage(this ModbusMessage message, short[] values)
+    {
+        var byteCount = values.Length * 2;
+        var buffer = new byte[9 + byteCount];
+
+        buffer[ModbusMessage.AddressIndex] = message.Address;
+        buffer[ModbusMessage.TypeIndex] = message.Type;
+        buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> 8);
+        buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
+        buffer[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> 8);
+        buffer[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
+        buffer[6] = (byte)byteCount;
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            buffer[7 + i * 2] = (byte)(values[i] >> 8);
+            buffer[8 + i * 2] = (byte)values[i];
+        }
+
+        var crc = buffer.ComputeCrc();
+        buffer[^2] = crc[0];
+        buffer[^1] = crc[1];
+
+        return buffer;
+    }
+
+    public static bool CheckResponse(this byte[] response)
+    {
+        //Perform a basic CRC check:
+        var crc = response.ComputeCrc();
+        return crc[0] == response[^2] && crc[1] == response[^1];
     }
 }

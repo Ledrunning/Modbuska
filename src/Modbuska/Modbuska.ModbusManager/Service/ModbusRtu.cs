@@ -9,31 +9,6 @@ public class ModbusRtu(SerialConnection serialConnection)
 {
     private readonly SerialConnection _serialConnection = serialConnection;
 
-    private byte[] BuildMessage(ModbusMessage message)
-    {
-        var word = new byte[ModbusMessage.MessageSize];
-
-        word[ModbusMessage.AddressIndex] = message.Address;
-        word[ModbusMessage.TypeIndex] = message.Type;
-        word[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> 8);
-        word[ModbusMessage.StartIndexLow] = (byte)message.Start;
-        word[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> 8);
-        word[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
-
-        var crc = word.ComputeCrc();
-        word[^2] = crc[0];
-        word[^1] = crc[1];
-
-        return word;
-    }
-
-    private bool CheckResponse(byte[] response)
-    {
-        //Perform a basic CRC check:
-        var crc = response.ComputeCrc();
-        return crc[0] == response[^2] && crc[1] == response[^1];
-    }
-
     public (IOperationResult result, bool[] coils) SendFc1(ModbusMessage message)
     {
         if (!_serialConnection.IsSerialPortOpen)
@@ -46,7 +21,7 @@ public class ModbusRtu(SerialConnection serialConnection)
         // Each 8 coils are packed into 1 byte → calculate byte length needed
         var coilByteCount = (message.Register + 7) / 8;
         var response = new byte[5 + coilByteCount]; // 5 = addr + func + byteCount + CRC(2)
-        var request = BuildMessage(message);
+        var request = message.BuildMessage();
 
         try
         {
@@ -58,7 +33,7 @@ public class ModbusRtu(SerialConnection serialConnection)
             return (OperationResult.Fail($"Error sending FC1: {ex.Message}"), []);
         }
 
-        if (!CheckResponse(response))
+        if (!response.CheckResponse())
         {
             return (OperationResult.Fail("Invalid CRC in response"), []);
         }
@@ -94,7 +69,7 @@ public class ModbusRtu(SerialConnection serialConnection)
         _serialConnection.DiscardSerialBuffers();
 
         var response = new byte[5 + 2 * message.Register];
-        var request = BuildMessage(message);
+        var request = message.BuildMessage();
 
         try
         {
@@ -106,7 +81,7 @@ public class ModbusRtu(SerialConnection serialConnection)
             return (OperationResult.Fail($"Error sending FC3: {ex.Message}"), []);
         }
 
-        if (!CheckResponse(response))
+        if (!response.CheckResponse())
         {
             return (OperationResult.Fail("Invalid CRC in response"), []);
         }
@@ -128,52 +103,32 @@ public class ModbusRtu(SerialConnection serialConnection)
     /// <param name="registers"></param>
     /// <param name="values"></param>
     /// <returns></returns>
-    public bool SendFc16(ModbusMessage message)
+    public IOperationResult SendFc16(ModbusMessage message, short[] values)
     {
-        //Ensure port is open:
-        if (_serialConnection.IsSerialPortOpen)
+        if (!_serialConnection.IsSerialPortOpen)
         {
-            //Clear in/out buffers:
-            _serialConnection.DiscardSerialBuffers();
-
-            //Message is 1 addr + 1 fcn + 2 start + 2 reg + 1 count + 2 * reg vals + 2 CRC
-            var buffer = new byte[9 + 2 * message.Register];
-
-            //Function 16 response is fixed at 8 bytes
-            var response = new byte[ModbusMessage.MessageSize];
-
-            //Add bytecount to message:
-            message[6] = (byte)(registers * 2);
-            //Put write values into message prior to sending:
-            for (var i = 0; i < registers; i++)
-            {
-                message[7 + 2 * i] = (byte)(values[i] >> 8);
-                message[8 + 2 * i] = (byte)values[i];
-            }
-
-            //Build outgoing message:
-            BuildMessage(address, (byte)16, start, registers, ref message);
-
-            //Send Modbus message to Serial Port:
-            try
-            {
-                _serialConnection.WriteData(message);
-                CheckResponse(ref response);
-            }
-            catch (Exception err)
-            {
-                return false;
-            }
-
-            //Evaluate message:
-            if (CheckResponse(response))
-            {
-                return true;
-            }
-
-            return false;
+            return OperationResult.Fail("Serial port is closed");
         }
 
-        return false;
+        _serialConnection.DiscardSerialBuffers();
+
+        var request = message.BuildMessage(values);
+        var response = new byte[ModbusMessage.MessageSize]; // FC16 response always 8 byte
+
+        try
+        {
+            _serialConnection.WriteData(request);
+            response = _serialConnection.ReadExact(response.Length);
+        }
+        catch (Exception ex)
+        {
+            return OperationResult.Fail($"Error sending FC16: {ex.Message}");
+        }
+
+        return response.CheckResponse()
+            ? OperationResult.Ok()
+            : OperationResult.Fail("CRC error in response");
     }
+    
+    
 }
