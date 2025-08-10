@@ -188,21 +188,11 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         message.Type = 0x05;
         var coilValue = value ? (ushort)0xFF00 : (ushort)0x0000;
 
-        var buffer = new byte[8];
-        buffer[0] = message.Address;
-        buffer[1] = message.Type;
-        buffer[2] = (byte)(message.Start >> 8);
-        buffer[3] = (byte)message.Start;
-        buffer[4] = (byte)(coilValue >> 8);
-        buffer[5] = (byte)coilValue;
-
-        var crc = buffer.ComputeCrc();
-        buffer[^2] = crc[0];
-        buffer[^1] = crc[1];
+        var request = message.BuildMessage(coilValue);
 
         try
         {
-            _serialConnectionService.WriteData(buffer);
+            _serialConnectionService.WriteData(request);
             var response = _serialConnectionService.ReadExact(ModbusMessage.MessageSize);
 
             if (!response.CheckResponse())
@@ -221,7 +211,7 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         }
     }
 
-    public (IOperationResult result, short registerValue) SendFc6(ModbusMessage message, short value)
+    public (IOperationResult result, ushort registerValue) SendFc6(ModbusMessage message, ushort value)
     {
         if (!_serialConnectionService.IsSerialPortOpen)
         {
@@ -232,21 +222,11 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
 
         message.Type = 0x06;
 
-        var buffer = new byte[8];
-        buffer[0] = message.Address;
-        buffer[1] = message.Type;
-        buffer[2] = (byte)(message.Start >> 8);
-        buffer[3] = (byte)message.Start;
-        buffer[4] = (byte)(value >> 8);
-        buffer[5] = (byte)value;
-
-        var crc = buffer.ComputeCrc();
-        buffer[^2] = crc[0];
-        buffer[^1] = crc[1];
+        var request = message.BuildMessage(value);
 
         try
         {
-            _serialConnectionService.WriteData(buffer);
+            _serialConnectionService.WriteData(request);
             var response = _serialConnectionService.ReadExact(8);
 
             if (!response.CheckResponse())
@@ -255,7 +235,7 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
             }
 
             // read the value from the answer
-            var returnedValue = (short)((response[4] << 8) | response[5]);
+            var returnedValue = (ushort)((response[4] << 8) | response[5]);
 
             return (OperationResult.Ok(), returnedValue);
         }
@@ -265,12 +245,65 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         }
     }
 
+    public IOperationResult SendFc15(ModbusMessage message, bool[] values)
+    {
+        if (!_serialConnectionService.IsSerialPortOpen)
+        {
+            return OperationResult.Fail("Serial port is closed");
+        }
+
+        _serialConnectionService.DiscardSerialBuffers();
+
+        message.Type = 0x0F;
+
+        var byteCount = (values.Length + 7) / 8; // upward rounding
+        var buffer = new byte[7 + 1 + byteCount + 2]; // address+function+start+number+of+bytes+software+data+CRC
+
+        buffer[0] = message.Address;
+        buffer[1] = message.Type;
+        buffer[2] = (byte)(message.Start >> 8);
+        buffer[3] = (byte)message.Start;
+        buffer[4] = (byte)(message.Register >> 8);
+        buffer[5] = (byte)message.Register;
+        buffer[6] = (byte)byteCount;
+
+        // Pack LSB bits first
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (values[i])
+            {
+                buffer[7 + i / 8] |= (byte)(1 << (i % 8));
+            }
+        }
+
+        // CRC
+        var crc = buffer.ComputeCrc();
+        buffer[^2] = crc[0];
+        buffer[^1] = crc[1];
+
+        try
+        {
+            _serialConnectionService.WriteData(buffer);
+            var response = _serialConnectionService.ReadExact(8); // the answer is always 8 bytes
+
+            if (!response.CheckResponse())
+            {
+                return OperationResult.Fail("Invalid CRC in FC15 response");
+            }
+
+            return OperationResult.Ok();
+        }
+        catch (Exception ex)
+        {
+            return OperationResult.Fail($"Error sending FC15: {ex.Message}");
+        }
+    }
+
+
     /// <summary>
     ///     Function 16 - Write Multiple Registers
     /// </summary>
-    /// <param name="address"></param>
-    /// <param name="start"></param>
-    /// <param name="registers"></param>
+    /// <param name="message"></param>
     /// <param name="values"></param>
     /// <returns></returns>
     public IOperationResult SendFc16(ModbusMessage message, short[] values)

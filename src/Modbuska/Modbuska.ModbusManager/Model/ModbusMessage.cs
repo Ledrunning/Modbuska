@@ -8,8 +8,8 @@ public class ModbusMessage
     public const int StartIndexLow = 3;
     public const int RegisterIndexHigh = 4;
     public const int RegisterIndexLow = 5;
-    public const int CrcLowIndex = 6;
-    public const int CrcHighIndex = 7;
+    public const int CrcLowIndex = 0;
+    public const int CrcHighIndex = 1;
     public const byte MessageSize = 8;
 
     public byte Address { get; set; }
