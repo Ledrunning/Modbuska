@@ -1,6 +1,6 @@
 namespace Modbuska.ModbusManager.Model;
 
-public class ModbusMessage
+public abstract class ModbusMessage
 {
     public const int AddressIndex = 0;
     public const int TypeIndex = 1;
