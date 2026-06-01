@@ -9,6 +9,70 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
 {
     private readonly SerialConnectionService _serialConnectionService = serialConnectionService;
 
+    private static IOperationResult ValidateResponse(byte[] response, ModbusMessage message, byte functionCode)
+    {
+        if (!response.CheckResponse())
+        {
+            return OperationResult.Fail("Invalid CRC in response");
+        }
+
+        if (response[ModbusMessage.AddressIndex] != message.Address)
+        {
+            return OperationResult.Fail("Unexpected slave address in response");
+        }
+
+        var responseFunction = response[ModbusMessage.TypeIndex];
+        if (responseFunction == (functionCode | 0x80))
+        {
+            return OperationResult.Fail($"Modbus exception response. Code: 0x{response[2]:X2}");
+        }
+
+        if (responseFunction != functionCode)
+        {
+            return OperationResult.Fail("Unexpected function code in response");
+        }
+
+        return OperationResult.Ok();
+    }
+
+    private byte[] ReadReadFunctionResponse()
+    {
+        var header = _serialConnectionService.ReadExact(3);
+
+        if ((header[ModbusMessage.TypeIndex] & 0x80) != 0)
+        {
+            var exceptionTail = _serialConnectionService.ReadExact(2);
+            return [header[0], header[1], header[2], exceptionTail[0], exceptionTail[1]];
+        }
+
+        var dataAndCrc = _serialConnectionService.ReadExact(header[2] + 2);
+        var response = new byte[header.Length + dataAndCrc.Length];
+
+        Buffer.BlockCopy(header, 0, response, 0, header.Length);
+        Buffer.BlockCopy(dataAndCrc, 0, response, header.Length, dataAndCrc.Length);
+
+        return response;
+    }
+
+    private byte[] ReadWriteFunctionResponse()
+    {
+        var header = _serialConnectionService.ReadExact(2);
+
+        if ((header[ModbusMessage.TypeIndex] & 0x80) != 0)
+        {
+            var exceptionTail = _serialConnectionService.ReadExact(3);
+            return [header[0], header[1], exceptionTail[0], exceptionTail[1], exceptionTail[2]];
+        }
+
+        var payloadAndCrc = _serialConnectionService.ReadExact(6);
+        var response = new byte[header.Length + payloadAndCrc.Length];
+
+        Buffer.BlockCopy(header, 0, response, 0, header.Length);
+        Buffer.BlockCopy(payloadAndCrc, 0, response, header.Length, payloadAndCrc.Length);
+
+        return response;
+    }
+
     public (IOperationResult result, bool[] coils) SendFc1(ModbusMessage message)
     {
         if (!_serialConnectionService.IsSerialPortOpen)
@@ -16,29 +80,35 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
             return (OperationResult.Fail("Serial port is closed"), []);
         }
 
+        message.Type = 0x01;
+
         _serialConnectionService.DiscardSerialBuffers();
 
-        // Each 8 coils are packed into 1 byte → calculate byte length needed
         var coilByteCount = (message.Register + 7) / 8;
-        var response = new byte[5 + coilByteCount]; // 5 = addr + func + byteCount + CRC(2)
+        if (coilByteCount > byte.MaxValue)
+        {
+            return (OperationResult.Fail("Requested coil count is too large"), []);
+        }
+
+        byte[] response;
         var request = message.BuildMessage();
 
         try
         {
             _serialConnectionService.WriteData(request);
-            response = _serialConnectionService.ReadExact(response.Length);
+            response = ReadReadFunctionResponse();
         }
         catch (Exception ex)
         {
             return (OperationResult.Fail($"Error sending FC1: {ex.Message}"), []);
         }
 
-        if (!response.CheckResponse())
+        var validationResult = ValidateResponse(response, message, 0x01);
+        if (!validationResult.Success)
         {
-            return (OperationResult.Fail("Invalid CRC in response"), []);
+            return (validationResult, []);
         }
 
-        // Byte 2 = byte count
         if (response[2] != coilByteCount)
         {
             return (OperationResult.Fail("Mismatch in expected coil data size"), []);
@@ -65,24 +135,33 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
             return (OperationResult.Fail("Serial port is closed"), []);
         }
 
+        message.Type = 0x03;
+
         _serialConnectionService.DiscardSerialBuffers();
 
-        var response = new byte[5 + 2 * message.Register];
+        byte[] response;
         var request = message.BuildMessage();
 
         try
         {
             _serialConnectionService.WriteData(request);
-            response = _serialConnectionService.ReadExact(response.Length);
+            response = ReadReadFunctionResponse();
         }
         catch (Exception ex)
         {
             return (OperationResult.Fail($"Error sending FC3: {ex.Message}"), []);
         }
 
-        if (!response.CheckResponse())
+        var validationResult = ValidateResponse(response, message, 0x03);
+        if (!validationResult.Success)
         {
-            return (OperationResult.Fail("Invalid CRC in response"), []);
+            return (validationResult, []);
+        }
+
+        var expectedByteCount = message.Register * 2;
+        if (response[2] != expectedByteCount)
+        {
+            return (OperationResult.Fail("Mismatch in expected register data size"), []);
         }
 
         var obtainedData = new short[message.Register];
@@ -101,30 +180,41 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
             return (OperationResult.Fail("Serial port is closed"), []);
         }
 
+        message.Type = 0x02;
+
         _serialConnectionService.DiscardSerialBuffers();
 
         var request = message.BuildMessage();
 
-        // Number of bytes in response = 1 (byte count) + ceil(message.Register / 8.0) + 2 (CRC)
         var byteCount = (message.Register + 7) / 8;
-        var response = new byte[5 + byteCount]; // 1 addr + 1 fc + 1 count + N data + 2 CRC
+        if (byteCount > byte.MaxValue)
+        {
+            return (OperationResult.Fail("Requested input count is too large"), []);
+        }
+
+        byte[] response;
 
         try
         {
             _serialConnectionService.WriteData(request);
-            response = _serialConnectionService.ReadExact(response.Length);
+            response = ReadReadFunctionResponse();
         }
         catch (Exception ex)
         {
             return (OperationResult.Fail($"Error sending FC2: {ex.Message}"), []);
         }
 
-        if (!response.CheckResponse())
+        var validationResult = ValidateResponse(response, message, 0x02);
+        if (!validationResult.Success)
         {
-            return (OperationResult.Fail("Invalid CRC in response"), []);
+            return (validationResult, []);
         }
 
-        // Bits parsing 
+        if (response[2] != byteCount)
+        {
+            return (OperationResult.Fail("Mismatch in expected input data size"), []);
+        }
+
         var inputs = new bool[message.Register];
         for (var i = 0; i < message.Register; i++)
         {
@@ -145,26 +235,31 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
 
         _serialConnectionService.DiscardSerialBuffers();
 
-        // Response size: 5 bytes header + 2 bytes per register
-        var response = new byte[5 + 2 * message.Register];
-
-        // For function 0x04 simply form a query as in FC3
         message.Type = 0x04;
+
+        byte[] response;
         var request = message.BuildMessage();
 
         try
         {
             _serialConnectionService.WriteData(request);
-            response = _serialConnectionService.ReadExact(response.Length);
+            response = ReadReadFunctionResponse();
         }
         catch (Exception ex)
         {
             return (OperationResult.Fail($"Error sending FC4: {ex.Message}"), []);
         }
 
-        if (!response.CheckResponse())
+        var validationResult = ValidateResponse(response, message, 0x04);
+        if (!validationResult.Success)
         {
-            return (OperationResult.Fail("Invalid CRC in FC4 response"), []);
+            return (validationResult, []);
+        }
+
+        var expectedByteCount = message.Register * 2;
+        if (response[2] != expectedByteCount)
+        {
+            return (OperationResult.Fail("Mismatch in expected input register data size"), []);
         }
 
         var obtainedData = new short[message.Register];
@@ -193,14 +288,19 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         try
         {
             _serialConnectionService.WriteData(request);
-            var response = _serialConnectionService.ReadExact(ModbusMessage.MessageSize);
+            var response = ReadWriteFunctionResponse();
 
-            if (!response.CheckResponse())
+            var validationResult = ValidateResponse(response, message, 0x05);
+            if (!validationResult.Success)
             {
-                return (OperationResult.Fail("Invalid CRC in FC5 response"), false);
+                return (validationResult, false);
             }
 
-            // read coilState from answer
+            if (response.Length != ModbusMessage.MessageSize)
+            {
+                return (OperationResult.Fail("Unexpected FC5 response length"), false);
+            }
+
             var returnedState = response[4] == 0xFF && response[5] == 0x00;
 
             return (OperationResult.Ok(), returnedState);
@@ -227,14 +327,19 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         try
         {
             _serialConnectionService.WriteData(request);
-            var response = _serialConnectionService.ReadExact(8);
+            var response = ReadWriteFunctionResponse();
 
-            if (!response.CheckResponse())
+            var validationResult = ValidateResponse(response, message, 0x06);
+            if (!validationResult.Success)
             {
-                return (OperationResult.Fail("Invalid CRC in FC6 response"), 0);
+                return (validationResult, 0);
             }
 
-            // read the value from the answer
+            if (response.Length != ModbusMessage.MessageSize)
+            {
+                return (OperationResult.Fail("Unexpected FC6 response length"), 0);
+            }
+
             var returnedValue = (ushort)((response[4] << 8) | response[5]);
 
             return (OperationResult.Ok(), returnedValue);
@@ -255,6 +360,11 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         _serialConnectionService.DiscardSerialBuffers();
 
         message.Type = 0x0F;
+
+        if (message.Register != values.Length)
+        {
+            return OperationResult.Fail("Register count does not match number of coil values");
+        }
 
         var byteCount = (values.Length + 7) / 8; // upward rounding
         var buffer = new byte[7 + 1 + byteCount + 2]; // address+function+start+number+of+bytes+software+data+CRC
@@ -284,11 +394,17 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
         try
         {
             _serialConnectionService.WriteData(buffer);
-            var response = _serialConnectionService.ReadExact(8); // the answer is always 8 bytes
+            var response = ReadWriteFunctionResponse();
 
-            if (!response.CheckResponse())
+            var validationResult = ValidateResponse(response, message, 0x0F);
+            if (!validationResult.Success)
             {
-                return OperationResult.Fail("Invalid CRC in FC15 response");
+                return validationResult;
+            }
+
+            if (response.Length != ModbusMessage.MessageSize)
+            {
+                return OperationResult.Fail("Unexpected FC15 response length");
             }
 
             return OperationResult.Ok();
@@ -315,21 +431,33 @@ public class ModbusRtuService(SerialConnectionService serialConnectionService)
 
         _serialConnectionService.DiscardSerialBuffers();
 
-        var request = message.BuildMessage(values);
-        var response = new byte[ModbusMessage.MessageSize]; // FC16 response always 8 byte
+        message.Type = 0x10;
+
+        if (message.Register != values.Length)
+        {
+            return OperationResult.Fail("Register count does not match number of values");
+        }
+
+        var request = message.BuildMessage(null, values);
 
         try
         {
             _serialConnectionService.WriteData(request);
-            response = _serialConnectionService.ReadExact(response.Length);
+            var response = ReadWriteFunctionResponse();
+
+            var validationResult = ValidateResponse(response, message, 0x10);
+            if (!validationResult.Success)
+            {
+                return validationResult;
+            }
+
+            return response.Length == ModbusMessage.MessageSize
+                ? OperationResult.Ok()
+                : OperationResult.Fail("Unexpected FC16 response length");
         }
         catch (Exception ex)
         {
             return OperationResult.Fail($"Error sending FC16: {ex.Message}");
         }
-
-        return response.CheckResponse()
-            ? OperationResult.Ok()
-            : OperationResult.Fail("CRC error in response");
     }
 }

@@ -69,11 +69,8 @@ public static class ModbusExtension
             buffer[ModbusMessage.TypeIndex] = message.Type;
             buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> ModbusMessage.MessageSize);
             buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
-
-            buffer[6] = (byte)(singleValue.Value >> ModbusMessage.MessageSize);
-            buffer[7] = (byte)singleValue.Value;
+            buffer[ModbusMessage.RegisterIndexHigh] = (byte)(singleValue.Value >> ModbusMessage.MessageSize);
+            buffer[ModbusMessage.RegisterIndexLow] = (byte)singleValue.Value;
         }
         else
         {

@@ -4,7 +4,7 @@ using Modbuska.ModbusManager.Model;
 
 namespace Modbuska.ModbusManager.Service;
 
-public class SerialConnectionService(SerialPort serialPort, ILogger logger, CancellationTokenSource? cts)
+public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnectionService> logger)
 {
     private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly SerialPort _serialPort = serialPort ?? throw new ArgumentNullException(nameof(serialPort));
