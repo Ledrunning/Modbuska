@@ -1,20 +1,27 @@
 namespace Modbuska.ModbusManager.Model;
 
+/// <summary>
+///     Base class for Modbus RTU messages. Concrete implementations should be created in the consuming project.
+/// </summary>
 public abstract class ModbusMessage
 {
-    public const int AddressIndex = 0;
-    public const int TypeIndex = 1;
-    public const int StartIndexHigh = 2;
-    public const int StartIndexLow = 3;
-    public const int RegisterIndexHigh = 4;
-    public const int RegisterIndexLow = 5;
-    public const int CrcLowIndex = 0;
-    public const int CrcHighIndex = 1;
-    public const byte MessageSize = 8;
-
+    /// <summary>
+    ///     Gets or sets the slave address (1–247).
+    /// </summary>
     public byte Address { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the Modbus function code.
+    /// </summary>
     public byte Type { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the starting register address.
+    /// </summary>
     public ushort Start { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the number of registers or quantity.
+    /// </summary>
     public ushort Register { get; set; }
-    public byte[] Message { get; set; } = new byte[MessageSize];
 }

@@ -58,16 +58,18 @@ internal sealed class ModbusConsoleApp(
             StopBits = stopBits
         };
 
-        var opened = _serialConnectionService.Open(settings);
-        WriteStatus(opened
+        var openResult = _serialConnectionService.Open(settings);
+        WriteStatus(openResult.Success
             ? $"Serial port {portName} opened"
-            : $"Failed to open serial port {portName} or it is already open");
+            : $"Failed to open serial port {portName}: {openResult.ErrorMessage}");
     }
 
     private void CloseSerialPort()
     {
-        var closed = _serialConnectionService.Close();
-        WriteStatus(closed ? "Serial port closed" : "Serial port is already closed or close failed");
+        var closeResult = _serialConnectionService.Close();
+        WriteStatus(closeResult.Success
+            ? "Serial port closed"
+            : $"Failed to close serial port: {closeResult.ErrorMessage}");
     }
 
     private void ExecuteFc1()

@@ -28,7 +28,7 @@ public class ModbusExtensionTests
 
         var frame = message.BuildMessage();
 
-        Assert.That(frame.Length, Is.EqualTo(Modbuska.ModbusManager.Model.ModbusMessage.MessageSize));
+        Assert.That(frame.Length, Is.EqualTo(Modbuska.ModbusManager.Model.ModbusFrame.MessageSize));
         Assert.That(frame[0], Is.EqualTo(0x01));
         Assert.That(frame[1], Is.EqualTo(0x03));
         Assert.That(frame[2], Is.EqualTo(0x00));
@@ -52,7 +52,7 @@ public class ModbusExtensionTests
 
         var frame = message.BuildMessage(0xFF00);
 
-        Assert.That(frame.Length, Is.EqualTo(Modbuska.ModbusManager.Model.ModbusMessage.MessageSize));
+        Assert.That(frame.Length, Is.EqualTo(Modbuska.ModbusManager.Model.ModbusFrame.MessageSize));
         Assert.That(frame[0], Is.EqualTo(0x11));
         Assert.That(frame[1], Is.EqualTo(0x05));
         Assert.That(frame[2], Is.EqualTo(0x00));

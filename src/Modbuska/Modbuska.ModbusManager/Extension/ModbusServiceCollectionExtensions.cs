@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Modbuska.ModbusManager.Abstraction;
 using Modbuska.ModbusManager.Service;
 using System.IO.Ports;
 
@@ -13,6 +14,7 @@ public static class ModbusServiceCollectionExtensions
         collection.AddLogging();
         collection.AddSingleton<SerialPort>();
         collection.AddSingleton<SerialConnectionService>();
+        collection.AddSingleton<ISerialConnectionService>(sp => sp.GetRequiredService<SerialConnectionService>());
         collection.AddSingleton<ModbusRtuService>();
 
         return collection;

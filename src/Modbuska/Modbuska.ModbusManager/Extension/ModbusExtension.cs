@@ -46,48 +46,48 @@ public static class ModbusExtension
             var byteCount = values.Length * 2;
             buffer = new byte[9 + byteCount];
 
-            buffer[ModbusMessage.AddressIndex] = message.Address;
-            buffer[ModbusMessage.TypeIndex] = message.Type;
-            buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
+            buffer[ModbusFrame.AddressIndex] = message.Address;
+            buffer[ModbusFrame.TypeIndex] = message.Type;
+            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
+            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.RegisterIndexLow] = (byte)message.Register;
             buffer[6] = (byte)byteCount;
 
             for (var i = 0; i < values.Length; i++)
             {
-                buffer[7 + i * 2] = (byte)(values[i] >> ModbusMessage.MessageSize);
+                buffer[7 + i * 2] = (byte)(values[i] >> ModbusFrame.MessageSize);
                 buffer[8 + i * 2] = (byte)values[i];
             }
         }
         else if (singleValue.HasValue)
         {
             // Functions with one value (FC5, FC6)
-            buffer = new byte[ModbusMessage.MessageSize];
+            buffer = new byte[ModbusFrame.MessageSize];
 
-            buffer[ModbusMessage.AddressIndex] = message.Address;
-            buffer[ModbusMessage.TypeIndex] = message.Type;
-            buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusMessage.RegisterIndexHigh] = (byte)(singleValue.Value >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.RegisterIndexLow] = (byte)singleValue.Value;
+            buffer[ModbusFrame.AddressIndex] = message.Address;
+            buffer[ModbusFrame.TypeIndex] = message.Type;
+            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
+            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(singleValue.Value >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.RegisterIndexLow] = (byte)singleValue.Value;
         }
         else
         {
             // Functions without data (FC1, FC3, etc.)
-            buffer = new byte[ModbusMessage.MessageSize];
+            buffer = new byte[ModbusFrame.MessageSize];
 
-            buffer[ModbusMessage.AddressIndex] = message.Address;
-            buffer[ModbusMessage.TypeIndex] = message.Type;
-            buffer[ModbusMessage.StartIndexHigh] = (byte)(message.Start >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusMessage.RegisterIndexHigh] = (byte)(message.Register >> ModbusMessage.MessageSize);
-            buffer[ModbusMessage.RegisterIndexLow] = (byte)message.Register;
+            buffer[ModbusFrame.AddressIndex] = message.Address;
+            buffer[ModbusFrame.TypeIndex] = message.Type;
+            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
+            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.RegisterIndexLow] = (byte)message.Register;
         }
 
         var crc = buffer.ComputeCrc();
-        buffer[^2] = crc[ModbusMessage.CrcLowIndex];
-        buffer[^1] = crc[ModbusMessage.CrcHighIndex];
+        buffer[^2] = crc[ModbusFrame.CrcLowIndex];
+        buffer[^1] = crc[ModbusFrame.CrcHighIndex];
 
         return buffer;
     }
@@ -97,6 +97,6 @@ public static class ModbusExtension
     {
         //Perform a basic CRC check:
         var crc = response.ComputeCrc();
-        return crc[ModbusMessage.CrcLowIndex] == response[^2] && crc[ModbusMessage.CrcHighIndex] == response[^1];
+        return crc[ModbusFrame.CrcLowIndex] == response[^2] && crc[ModbusFrame.CrcHighIndex] == response[^1];
     }
 }

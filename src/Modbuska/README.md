@@ -57,6 +57,23 @@ var message = new MyModbusMessage
 var (result, values) = modbus.SendFc3(message);
 ```
 
+`Open` and `Close` return `IOperationResult`, so you can check `Success`/`ErrorMessage`:
+
+```csharp
+var openResult = serial.Open(new SerialPortSettings
+{
+    PortName = "COM3",
+    BaudRate = 9600,
+    ReadTimeout = 1000,   // default 500
+    WriteTimeout = 200    // default 100
+});
+
+if (!openResult.Success)
+{
+    Console.WriteLine(openResult.ErrorMessage);
+}
+```
+
 > `ModbusMessage` is abstract, so create your own concrete type in the consuming project.
 
 ## Example project
