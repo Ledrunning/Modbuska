@@ -5,11 +5,12 @@ using Modbuska.ModbusManager.Results;
 
 namespace Modbuska.ModbusManager.Service;
 
+/// <summary>
+///     Provides methods for sending Modbus RTU function requests and parsing responses over a serial connection.
+/// </summary>
 public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 {
     private readonly ISerialConnectionService _serialConnectionService = serialConnectionService;
-
-    private readonly record struct ParseResult<T>(IOperationResult Result, T Data);
 
     private static IOperationResult ValidateResponse(byte[] response, ModbusMessage message, byte functionCode)
     {
@@ -29,15 +30,15 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 
     private byte[] ReadReadFunctionResponse()
     {
-        var header = _serialConnectionService.ReadExact(3);
+        var header = _serialConnectionService.ReadExact(ModbusFrame.ReadResponseHeaderSize);
 
         if ((header[ModbusFrame.TypeIndex] & ModbusFrame.ExceptionFlag) != 0)
         {
-            var exceptionTail = _serialConnectionService.ReadExact(2);
+            var exceptionTail = _serialConnectionService.ReadExact(ModbusFrame.ExceptionReadTailSize);
             return [header[0], header[1], header[2], exceptionTail[0], exceptionTail[1]];
         }
 
-        var dataAndCrc = _serialConnectionService.ReadExact(header[ModbusFrame.ByteCountIndex] + 2);
+        var dataAndCrc = _serialConnectionService.ReadExact(header[ModbusFrame.ByteCountIndex] + ModbusFrame.CrcSize);
         var response = new byte[header.Length + dataAndCrc.Length];
 
         Buffer.BlockCopy(header, 0, response, 0, header.Length);
@@ -48,15 +49,15 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 
     private byte[] ReadWriteFunctionResponse()
     {
-        var header = _serialConnectionService.ReadExact(2);
+        var header = _serialConnectionService.ReadExact(ModbusFrame.WriteResponseHeaderSize);
 
         if ((header[ModbusFrame.TypeIndex] & ModbusFrame.ExceptionFlag) != 0)
         {
-            var exceptionTail = _serialConnectionService.ReadExact(3);
+            var exceptionTail = _serialConnectionService.ReadExact(ModbusFrame.ExceptionWriteTailSize);
             return [header[0], header[1], exceptionTail[0], exceptionTail[1], exceptionTail[2]];
         }
 
-        var payloadAndCrc = _serialConnectionService.ReadExact(6);
+        var payloadAndCrc = _serialConnectionService.ReadExact(ModbusFrame.WriteResponsePayloadSize);
         var response = new byte[header.Length + payloadAndCrc.Length];
 
         Buffer.BlockCopy(header, 0, response, 0, header.Length);
@@ -129,6 +130,11 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         }
     }
 
+    /// <summary>
+    ///     Function 01 - Read Coils. Reads the status of multiple coils from a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of coils to read.</param>
+    /// <returns>A tuple containing the operation result and an array of coil states.</returns>
     public (IOperationResult result, bool[] coils) SendFc1(ModbusMessage message)
     {
         var coilByteCount = (message.Register + 7) / 8;
@@ -152,6 +158,11 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         });
     }
 
+    /// <summary>
+    ///     Function 03 - Read Holding Registers. Reads the content of multiple holding registers from a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of registers to read.</param>
+    /// <returns>A tuple containing the operation result and an array of register values.</returns>
     public (IOperationResult result, short[] obtainedData) SendFc3(ModbusMessage message)
     {
         return ExecuteRead(message, ModbusFunctionType.ReadHoldingRegisters, "FC3", response =>
@@ -169,6 +180,11 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         });
     }
 
+    /// <summary>
+    ///     Function 02 - Read Discrete Inputs. Reads the status of multiple discrete inputs from a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of inputs to read.</param>
+    /// <returns>A tuple containing the operation result and an array of input states.</returns>
     public (IOperationResult result, bool[] inputs) SendFc2(ModbusMessage message)
     {
         var byteCount = (message.Register + 7) / 8;
@@ -192,13 +208,19 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         });
     }
 
+    /// <summary>
+    ///     Function 04 - Read Input Registers. Reads the content of multiple input registers from a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of registers to read.</param>
+    /// <returns>A tuple containing the operation result and an array of register values.</returns>
     public (IOperationResult result, short[] obtainedData) SendFc4(ModbusMessage message)
     {
         return ExecuteRead(message, ModbusFunctionType.ReadInputRegisters, "FC4", response =>
         {
             var expectedByteCount = message.Register * 2;
             if (response[ModbusFrame.ByteCountIndex] != expectedByteCount)
-                return new ParseResult<short[]>(OperationResult.Fail("Mismatch in expected input register data size"), []);
+                return new ParseResult<short[]>(OperationResult.Fail("Mismatch in expected input register data size"),
+                    []);
 
             var obtainedData = new short[message.Register];
             for (var i = 0; i < message.Register; i++)
@@ -209,9 +231,15 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         });
     }
 
+    /// <summary>
+    ///     Function 05 - Write Single Coil. Writes a single coil to a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address and coil address.</param>
+    /// <param name="value">The coil state to write (<c>true</c> for ON, <c>false</c> for OFF).</param>
+    /// <returns>A tuple containing the operation result and the confirmed coil state.</returns>
     public (IOperationResult result, bool coilState) SendFc5(ModbusMessage message, bool value)
     {
-        var coilValue = value ? (ushort)0xFF00 : (ushort)0x0000;
+        var coilValue = value ? ModbusFrame.CoilOnValue : ModbusFrame.CoilOffValue;
         var request = message.BuildMessage(coilValue);
 
         return ExecuteWrite(message, ModbusFunctionType.WriteSingleCoil, "FC5", request, response =>
@@ -219,13 +247,19 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             if (response.Length != ModbusFrame.MessageSize)
                 return new ParseResult<bool>(OperationResult.Fail("Unexpected FC5 response length"), false);
 
-            var returnedState = response[ModbusFrame.RegisterIndexHigh] == 0xFF &&
-                                response[ModbusFrame.RegisterIndexLow] == 0x00;
+            var returnedState = response[ModbusFrame.RegisterIndexHigh] == ModbusFrame.CoilOnHighByte &&
+                                response[ModbusFrame.RegisterIndexLow] == ModbusFrame.CoilOnLowByte;
 
             return new ParseResult<bool>(OperationResult.Ok(), returnedState);
         });
     }
 
+    /// <summary>
+    ///     Function 06 - Write Single Register. Writes a value to a single holding register on a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address and register address.</param>
+    /// <param name="value">The value to write to the register.</param>
+    /// <returns>A tuple containing the operation result and the confirmed register value.</returns>
     public (IOperationResult result, ushort registerValue) SendFc6(ModbusMessage message, ushort value)
     {
         var request = message.BuildMessage(value);
@@ -242,13 +276,21 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         });
     }
 
+    /// <summary>
+    ///     Function 15 - Write Multiple Coils. Writes multiple coils to a Modbus slave device.
+    /// </summary>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of coils.</param>
+    /// <param name="values">An array of coil states to write.</param>
+    /// <returns>An <see cref="IOperationResult" /> indicating success or failure.</returns>
     public IOperationResult SendFc15(ModbusMessage message, bool[] values)
     {
         if (message.Register != values.Length)
             return OperationResult.Fail("Register count does not match number of coil values");
 
         var byteCount = (values.Length + 7) / 8; // upward rounding
-        var buffer = new byte[7 + 1 + byteCount + 2]; // address+function+start+number+of+bytes+software+data+CRC
+        var buffer =
+            new byte[ModbusFrame.WriteRequestHeaderSize + 1 + byteCount +
+                     ModbusFrame.CrcSize]; // address+function+start+number+of+bytes+software+data+CRC
 
         buffer[ModbusFrame.AddressIndex] = message.Address;
         buffer[ModbusFrame.TypeIndex] = message.Type;
@@ -278,11 +320,11 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     }
 
     /// <summary>
-    ///     Function 16 - Write Multiple Registers
+    ///     Function 16 - Write Multiple Registers. Writes multiple holding registers to a Modbus slave device.
     /// </summary>
-    /// <param name="message"></param>
-    /// <param name="values"></param>
-    /// <returns></returns>
+    /// <param name="message">The Modbus message containing the slave address, start address, and number of registers.</param>
+    /// <param name="values">An array of register values to write.</param>
+    /// <returns>An <see cref="IOperationResult" /> indicating success or failure.</returns>
     public IOperationResult SendFc16(ModbusMessage message, short[] values)
     {
         if (message.Register != values.Length)
@@ -298,4 +340,6 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             return new ParseResult<bool>(OperationResult.Ok(), true);
         }).result;
     }
+
+    private readonly record struct ParseResult<T>(IOperationResult Result, T Data);
 }

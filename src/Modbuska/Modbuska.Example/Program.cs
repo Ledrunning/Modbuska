@@ -7,7 +7,7 @@ var services = new ServiceCollection();
 services.AddModbus();
 services.AddSingleton<ModbusConsoleApp>();
 
-using var serviceProvider = services.BuildServiceProvider();
+await using var serviceProvider = services.BuildServiceProvider();
 
 var app = serviceProvider.GetRequiredService<ModbusConsoleApp>();
 await app.RunAsync(args);

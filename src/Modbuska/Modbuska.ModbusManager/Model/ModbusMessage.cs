@@ -8,7 +8,7 @@ public abstract class ModbusMessage
     /// <summary>
     ///     Gets or sets the slave address (1–247).
     /// </summary>
-    public byte Address { get; set; }
+    public byte Address { get; init; }
 
     /// <summary>
     ///     Gets or sets the Modbus function code.
@@ -18,10 +18,10 @@ public abstract class ModbusMessage
     /// <summary>
     ///     Gets or sets the starting register address.
     /// </summary>
-    public ushort Start { get; set; }
+    public ushort Start { get; init; }
 
     /// <summary>
     ///     Gets or sets the number of registers or quantity.
     /// </summary>
-    public ushort Register { get; set; }
+    public ushort Register { get; init; }
 }

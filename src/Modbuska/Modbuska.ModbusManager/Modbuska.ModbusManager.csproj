@@ -1,23 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <IsPackable>true</IsPackable>
+
+        <!-- NuGet Packaging Properties -->
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>Modbuska.ModbusManager</PackageId>
-        <Version>0.1.0</Version>
+        <Version>1.0.0</Version>
         <Authors>Osman Mazinov</Authors>
-        <Company>-/-</Company>
-        <Description>Lightweight .NET library for Modbus RTU communication over serial ports with DI registration support.</Description>
-        <PackageTags>modbus;modbus-rtu;serial;industrial;dotnet</PackageTags>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <PackageProjectUrl>https://github.com/Ledrunning/Modbuska</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/Ledrunning/Modbuska</RepositoryUrl>
+        <Company>Industrial Automation</Company>
+        <Description>High-performance modern .NET 8 Modbus RTU client library for industrial IoT and automation.</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/your-username/Modbuska</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <PackageTags>modbus;modbus-rtu;iot;automation;serialport</PackageTags>
+
+        <!-- Symbols and Source Link -->
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>

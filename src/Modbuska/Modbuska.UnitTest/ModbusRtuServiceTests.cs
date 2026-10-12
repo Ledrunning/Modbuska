@@ -1,6 +1,7 @@
 using Modbuska.ModbusManager.Extension;
 using Modbuska.ModbusManager.Model;
 using Modbuska.ModbusManager.Service;
+using Xunit;
 
 namespace Modbuska.UnitTest;
 
@@ -27,7 +28,7 @@ public class ModbusRtuServiceTests
         return frame;
     }
 
-    [Test]
+    [Fact]
     public void SendFc1_ShouldParseCoilsCorrectly()
     {
         // FC1: address=0x01, function=0x01, byteCount=0x01, data=0x02 (coil 1 set)
@@ -37,14 +38,14 @@ public class ModbusRtuServiceTests
 
         var (result, coils) = service.SendFc1(message);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(coils, Has.Length.EqualTo(8));
+        Assert.True(result.Success);
+        Assert.Equal(8, coils.Length);
         // data = 0x02 => bit 1 set
-        Assert.That(coils[0], Is.False);
-        Assert.That(coils[1], Is.True);
+        Assert.False(coils[0]);
+        Assert.True(coils[1]);
     }
 
-    [Test]
+    [Fact]
     public void SendFc2_ShouldParseInputsCorrectly()
     {
         // FC2: address=0x01, function=0x02, byteCount=0x01, data=0x01 (input 0 set)
@@ -54,14 +55,14 @@ public class ModbusRtuServiceTests
 
         var (result, inputs) = service.SendFc2(message);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(inputs, Has.Length.EqualTo(8));
+        Assert.True(result.Success);
+        Assert.Equal(8, inputs.Length);
         // data = 0x01 => bit 0 set
-        Assert.That(inputs[0], Is.True);
-        Assert.That(inputs[1], Is.False);
+        Assert.True(inputs[0]);
+        Assert.False(inputs[1]);
     }
 
-    [Test]
+    [Fact]
     public void SendFc3_ShouldParseRegistersCorrectly()
     {
         // FC3: address=0x01, function=0x03, byteCount=0x04, data=0x000A 0x000B
@@ -71,13 +72,13 @@ public class ModbusRtuServiceTests
 
         var (result, registers) = service.SendFc3(message);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(registers, Has.Length.EqualTo(2));
-        Assert.That(registers[0], Is.EqualTo(0x000A));
-        Assert.That(registers[1], Is.EqualTo(0x000B));
+        Assert.True(result.Success);
+        Assert.Equal(2, registers.Length);
+        Assert.Equal(0x000A, registers[0]);
+        Assert.Equal(0x000B, registers[1]);
     }
 
-    [Test]
+    [Fact]
     public void SendFc4_ShouldParseInputRegistersCorrectly()
     {
         // FC4: address=0x01, function=0x04, byteCount=0x02, data=0x000C
@@ -87,12 +88,12 @@ public class ModbusRtuServiceTests
 
         var (result, registers) = service.SendFc4(message);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(registers, Has.Length.EqualTo(1));
-        Assert.That(registers[0], Is.EqualTo(0x000C));
+        Assert.True(result.Success);
+        Assert.Single(registers);
+        Assert.Equal(0x000C, registers[0]);
     }
 
-    [Test]
+    [Fact]
     public void SendFc5_ShouldReturnCoilState()
     {
         // FC5: address=0x01, function=0x05, start=0x0000, value=0xFF00
@@ -102,11 +103,11 @@ public class ModbusRtuServiceTests
 
         var (result, coilState) = service.SendFc5(message, true);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(coilState, Is.True);
+        Assert.True(result.Success);
+        Assert.True(coilState);
     }
 
-    [Test]
+    [Fact]
     public void SendFc6_ShouldReturnRegisterValue()
     {
         // FC6: address=0x01, function=0x06, start=0x0000, value=0x0010
@@ -116,11 +117,11 @@ public class ModbusRtuServiceTests
 
         var (result, registerValue) = service.SendFc6(message, 0x0010);
 
-        Assert.That(result.Success, Is.True);
-        Assert.That(registerValue, Is.EqualTo(0x0010));
+        Assert.True(result.Success);
+        Assert.Equal(0x0010, registerValue);
     }
 
-    [Test]
+    [Fact]
     public void SendFc15_ShouldSucceed()
     {
         // FC15: address=0x01, function=0x0F, start=0x0000, count=0x0008
@@ -130,10 +131,10 @@ public class ModbusRtuServiceTests
 
         var result = service.SendFc15(message, [true, false, false, false, false, false, false, false]);
 
-        Assert.That(result.Success, Is.True);
+        Assert.True(result.Success);
     }
 
-    [Test]
+    [Fact]
     public void SendFc16_ShouldSucceed()
     {
         // FC16: address=0x01, function=0x10, start=0x0000, count=0x0002
@@ -143,10 +144,10 @@ public class ModbusRtuServiceTests
 
         var result = service.SendFc16(message, [0x000A, 0x000B]);
 
-        Assert.That(result.Success, Is.True);
+        Assert.True(result.Success);
     }
 
-    [Test]
+    [Fact]
     public void SendFc1_ShouldFail_WhenPortClosed()
     {
         var fake = new FakeSerialConnectionService([0x00]) { IsSerialPortOpen = false };
@@ -155,11 +156,11 @@ public class ModbusRtuServiceTests
 
         var (result, _) = service.SendFc1(message);
 
-        Assert.That(result.Success, Is.False);
-        Assert.That(result.ErrorMessage, Does.Contain("Serial port is closed"));
+        Assert.False(result.Success);
+        Assert.Contains("Serial port is closed", result.ErrorMessage);
     }
 
-    [Test]
+    [Fact]
     public void SendFc3_ShouldFail_WhenCrcInvalid()
     {
         var response = BuildResponse(0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x0B);
@@ -169,11 +170,11 @@ public class ModbusRtuServiceTests
 
         var (result, _) = service.SendFc3(message);
 
-        Assert.That(result.Success, Is.False);
-        Assert.That(result.ErrorMessage, Does.Contain("Invalid CRC"));
+        Assert.False(result.Success);
+        Assert.Contains("Invalid CRC", result.ErrorMessage);
     }
 
-    [Test]
+    [Fact]
     public void SendFc3_ShouldFail_WhenAddressMismatch()
     {
         var response = BuildResponse(0x02, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x0B); // wrong address
@@ -182,11 +183,11 @@ public class ModbusRtuServiceTests
 
         var (result, _) = service.SendFc3(message);
 
-        Assert.That(result.Success, Is.False);
-        Assert.That(result.ErrorMessage, Does.Contain("Unexpected slave address"));
+        Assert.False(result.Success);
+        Assert.Contains("Unexpected slave address", result.ErrorMessage);
     }
 
-    [Test]
+    [Fact]
     public void SendFc1_ShouldFail_WhenModbusException()
     {
         // Exception response: address=0x01, function=0x81 (0x01 | 0x80), code=0x02
@@ -196,11 +197,11 @@ public class ModbusRtuServiceTests
 
         var (result, _) = service.SendFc1(message);
 
-        Assert.That(result.Success, Is.False);
-        Assert.That(result.ErrorMessage, Does.Contain("Modbus exception response"));
+        Assert.False(result.Success);
+        Assert.Contains("Modbus exception response", result.ErrorMessage);
     }
 
-    [Test]
+    [Fact]
     public void SendFc3_ShouldFail_WhenByteCountMismatch()
     {
         // FC3: address=0x01, function=0x03, byteCount=0x02 (wrong, should be 0x04 for 2 registers)
@@ -213,7 +214,7 @@ public class ModbusRtuServiceTests
 
         var (result, _) = service.SendFc3(message);
 
-        Assert.That(result.Success, Is.False);
-        Assert.That(result.ErrorMessage, Does.Contain("Mismatch in expected register data size"));
+        Assert.False(result.Success);
+        Assert.Contains("Mismatch in expected register data size", result.ErrorMessage);
     }
 }

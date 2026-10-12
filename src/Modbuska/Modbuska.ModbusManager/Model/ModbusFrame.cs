@@ -64,4 +64,81 @@ public static class ModbusFrame
     ///     Bit flag indicating an exception response (function code OR 0x80).
     /// </summary>
     public const byte ExceptionFlag = 0x80;
+
+    /// <summary>
+    ///     Size of the CRC checksum in bytes.
+    /// </summary>
+    public const int CrcSize = 2;
+
+    /// <summary>
+    ///     Size of a read response header in bytes (address + function + byte count).
+    /// </summary>
+    public const int ReadResponseHeaderSize = 3;
+
+    /// <summary>
+    ///     Size of a write response header in bytes (address + function).
+    /// </summary>
+    public const int WriteResponseHeaderSize = 2;
+
+    /// <summary>
+    ///     Size of a write response payload in bytes (start address + register count + CRC).
+    /// </summary>
+    public const int WriteResponsePayloadSize = 6;
+
+    /// <summary>
+    ///     Size of the exception tail for read function responses in bytes (CRC only, exception code is in byte count
+    ///     position).
+    /// </summary>
+    public const int ExceptionReadTailSize = 2;
+
+    /// <summary>
+    ///     Size of the exception tail for write function responses in bytes (exception code + CRC).
+    /// </summary>
+    public const int ExceptionWriteTailSize = 3;
+
+    /// <summary>
+    ///     Size of a write request header in bytes before data (address + function + start address + register count + byte
+    ///     count).
+    /// </summary>
+    public const int WriteRequestHeaderSize = 7;
+
+    /// <summary>
+    ///     Coil ON value for Function Code 05 (Write Single Coil).
+    /// </summary>
+    public const ushort CoilOnValue = 0xFF00;
+
+    /// <summary>
+    ///     Coil OFF value for Function Code 05 (Write Single Coil).
+    /// </summary>
+    public const ushort CoilOffValue = 0x0000;
+
+    /// <summary>
+    ///     High byte value indicating an ON coil state in the response.
+    /// </summary>
+    public const byte CoilOnHighByte = 0xFF;
+
+    /// <summary>
+    ///     Low byte value indicating an ON coil state in the response.
+    /// </summary>
+    public const byte CoilOnLowByte = 0x00;
+
+    /// <summary>
+    ///     Number of bytes in a single Modbus register (16-bit value).
+    /// </summary>
+    public const int BytesPerRegister = 2;
+
+    /// <summary>
+    ///     Number of bits to shift right to extract the high byte of a 16-bit value.
+    /// </summary>
+    public const int HighByteShift = 8;
+
+    /// <summary>
+    ///     CRC-16 Modbus polynomial used for checksum computation.
+    /// </summary>
+    public const ushort CrcPolynomial = 0xA001;
+
+    /// <summary>
+    ///     Index of the byte count field in a write request frame (FC15/FC16).
+    /// </summary>
+    public const int WriteRequestByteCountIndex = 6;
 }
