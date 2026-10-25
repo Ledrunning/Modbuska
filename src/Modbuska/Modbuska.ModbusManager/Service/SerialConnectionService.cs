@@ -26,23 +26,43 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// </summary>
     public bool IsSerialPortOpen => _serialPort.IsOpen;
 
-    /// <summary>
-    ///     Discards all data in the serial port's input and output buffers.
-    /// </summary>
-    public void DiscardSerialBuffers()
+    private void ExecuteSynchronized(Action action)
     {
         _lock.Wait();
-
         try
         {
-            _serialPort.DiscardOutBuffer();
-            _serialPort.DiscardInBuffer();
-            _logger.LogInformation("Discard In / Out serial buffers.");
+            action();
         }
         finally
         {
             _lock.Release();
         }
+    }
+
+    private T ExecuteSynchronized<T>(Func<T> func)
+    {
+        _lock.Wait();
+        try
+        {
+            return func();
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    /// <summary>
+    ///     Discards all data in the serial port's input and output buffers.
+    /// </summary>
+    public void DiscardSerialBuffers()
+    {
+        ExecuteSynchronized(() =>
+        {
+            _serialPort.DiscardOutBuffer();
+            _serialPort.DiscardInBuffer();
+            _logger.LogInformation("Discard In / Out serial buffers.");
+        });
     }
 
     /// <summary>
@@ -53,8 +73,7 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// <exception cref="IOException">Thrown when the serial port returns 0 bytes, indicating the connection may be closed.</exception>
     public byte[] ReadExact(int length)
     {
-        _lock.Wait();
-        try
+        return ExecuteSynchronized(() =>
         {
             var buffer = new byte[length];
             var offset = 0;
@@ -68,11 +87,7 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
             }
 
             return buffer;
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        });
     }
 
     /// <summary>
@@ -81,15 +96,10 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// <param name="data">The data to write.</param>
     public void WriteData(byte[] data)
     {
-        _lock.Wait();
-        try
+        ExecuteSynchronized(() =>
         {
             _serialPort.Write(data, 0, data.Length);
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        });
     }
 
     /// <summary>
@@ -97,8 +107,7 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// </summary>
     public IOperationResult Open(SerialPortSettings portSettings)
     {
-        _lock.Wait();
-        try
+        return ExecuteSynchronized(() =>
         {
             if (_serialPort.IsOpen) return OperationResult.Fail("Serial port is already open");
 
@@ -110,19 +119,18 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
             _serialPort.ReadTimeout = portSettings.ReadTimeout;
             _serialPort.WriteTimeout = portSettings.WriteTimeout;
 
-            _serialPort.Open();
-            _logger.LogInformation("Serial port opened.");
-            return OperationResult.Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to open serial port.");
-            return OperationResult.Fail($"Failed to open serial port: {ex.Message}");
-        }
-        finally
-        {
-            _lock.Release();
-        }
+            try
+            {
+                _serialPort.Open();
+                _logger.LogInformation("Serial port opened.");
+                return OperationResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to open serial port.");
+                return OperationResult.Fail($"Failed to open serial port: {ex.Message}");
+            }
+        });
     }
 
     /// <summary>
@@ -130,23 +138,21 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// </summary>
     public IOperationResult Close()
     {
-        _lock.Wait();
-        try
+        return ExecuteSynchronized(() =>
         {
             if (!_serialPort.IsOpen) return OperationResult.Fail("Serial port is not open");
 
-            _serialPort.Close();
-            _logger.LogInformation("Serial port closed.");
-            return OperationResult.Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to close serial port.");
-            return OperationResult.Fail($"Failed to close serial port: {ex.Message}");
-        }
-        finally
-        {
-            _lock.Release();
-        }
+            try
+            {
+                _serialPort.Close();
+                _logger.LogInformation("Serial port closed.");
+                return OperationResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to close serial port.");
+                return OperationResult.Fail($"Failed to close serial port: {ex.Message}");
+            }
+        });
     }
 }

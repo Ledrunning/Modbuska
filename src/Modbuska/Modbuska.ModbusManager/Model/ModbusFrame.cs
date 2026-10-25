@@ -141,4 +141,49 @@ public static class ModbusFrame
     ///     Index of the byte count field in a write request frame (FC15/FC16).
     /// </summary>
     public const int WriteRequestByteCountIndex = 6;
+
+    /// <summary>
+    ///     Broadcast slave address (no response expected from slaves).
+    /// </summary>
+    public const byte BroadcastAddress = 0;
+
+    /// <summary>
+    ///     Minimum valid slave address (inclusive).
+    /// </summary>
+    public const byte MinSlaveAddress = 1;
+
+    /// <summary>
+    ///     Maximum valid slave address (inclusive).
+    /// </summary>
+    public const byte MaxSlaveAddress = 247;
+
+    /// <summary>
+    ///     Maximum number of coils for FC1 (Read Coils).
+    /// </summary>
+    public const int MaxReadCoils = 2000;
+
+    /// <summary>
+    ///     Maximum number of discrete inputs for FC2 (Read Discrete Inputs).
+    /// </summary>
+    public const int MaxReadDiscreteInputs = 2000;
+
+    /// <summary>
+    ///     Maximum number of holding registers for FC3 (Read Holding Registers).
+    /// </summary>
+    public const int MaxReadHoldingRegisters = 125;
+
+    /// <summary>
+    ///     Maximum number of input registers for FC4 (Read Input Registers).
+    /// </summary>
+    public const int MaxReadInputRegisters = 125;
+
+    /// <summary>
+    ///     Maximum number of coils for FC15 (Write Multiple Coils).
+    /// </summary>
+    public const int MaxWriteMultipleCoils = 1968;
+
+    /// <summary>
+    ///     Maximum number of registers for FC16 (Write Multiple Registers).
+    /// </summary>
+    public const int MaxWriteMultipleRegisters = 123;
 }

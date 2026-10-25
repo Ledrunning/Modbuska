@@ -48,29 +48,28 @@ public static class ModbusExtension
     /// <param name="singleValue">An optional single value for functions FC5 and FC6.</param>
     /// <param name="values">An optional array of values for functions FC15 and FC16.</param>
     /// <returns>A byte array representing the complete Modbus RTU frame with CRC.</returns>
-    public static byte[] BuildMessage(this ModbusMessage message, ushort? singleValue = null, short[]? values = null)
+    public static byte[] BuildMessage(this ModbusMessage message, ushort? singleValue = null, ushort[]? values = null)
     {
         byte[] buffer;
 
         if (values != null)
         {
             // Functions with an array of values (FC15, FC16)
-            var byteCount = values.Length * ModbusFrame.BytesPerRegister;
-            buffer = new byte[ModbusFrame.WriteRequestHeaderSize + ModbusFrame.CrcSize + byteCount];
+            var byteCount = values.Length * 2;
+            buffer = new byte[9 + byteCount];
 
             buffer[ModbusFrame.AddressIndex] = message.Address;
             buffer[ModbusFrame.TypeIndex] = message.Type;
-            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.HighByteShift);
+            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.MessageSize);
             buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.HighByteShift);
+            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.MessageSize);
             buffer[ModbusFrame.RegisterIndexLow] = (byte)message.Register;
-            buffer[ModbusFrame.WriteRequestByteCountIndex] = (byte)byteCount;
+            buffer[6] = (byte)byteCount;
 
             for (var i = 0; i < values.Length; i++)
             {
-                buffer[ModbusFrame.WriteRequestHeaderSize + i * ModbusFrame.BytesPerRegister] =
-                    (byte)(values[i] >> ModbusFrame.HighByteShift);
-                buffer[ModbusFrame.WriteRequestHeaderSize + i * ModbusFrame.BytesPerRegister + 1] = (byte)values[i];
+                buffer[7 + i * 2] = (byte)(values[i] >> ModbusFrame.MessageSize);
+                buffer[8 + i * 2] = (byte)values[i];
             }
         }
         else if (singleValue.HasValue)

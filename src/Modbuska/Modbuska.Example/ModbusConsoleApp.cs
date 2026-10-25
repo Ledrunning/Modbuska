@@ -1,10 +1,9 @@
-using ConsoleTools;
-using Modbuska.ModbusManager.Abstraction;
-using Modbuska.ModbusManager.Extension;
-using Modbuska.ModbusManager.Model;
-using Modbuska.ModbusManager.Service;
 using System.Globalization;
 using System.IO.Ports;
+using ConsoleTools;
+using Modbuska.ModbusManager.Abstraction;
+using Modbuska.ModbusManager.Model;
+using Modbuska.ModbusManager.Service;
 
 namespace Modbuska.Example;
 
@@ -17,7 +16,7 @@ internal sealed class ModbusConsoleApp(
 
     public async Task RunAsync(string[] args)
     {
-        var menu = new ConsoleMenu(args, level: 0)
+        var menu = new ConsoleMenu(args, 0)
             .Add("Open serial", OpenSerialPort)
             .Add("Close serial", CloseSerialPort)
             .Add("FC1 - Read Coils", ExecuteFc1)
@@ -44,8 +43,8 @@ internal sealed class ModbusConsoleApp(
     private void OpenSerialPort()
     {
         var portName = ReadRequiredString("Port name", "COM3");
-        var baudRate = ReadInt("Baud rate", 9600, min: 1);
-        var dataBits = ReadInt("Data bits", 8, min: 5, max: 8);
+        var baudRate = ReadInt("Baud rate", 9600, 1);
+        var dataBits = ReadInt("Data bits", 8, 5, 8);
         var parity = ReadEnum("Parity", Parity.None);
         var stopBits = ReadEnum("Stop bits", StopBits.One);
 
@@ -116,7 +115,7 @@ internal sealed class ModbusConsoleApp(
     private void ExecuteFc6()
     {
         var message = ReadSingleAddressMessage();
-        var value = (ushort)ReadInt("Register value", 1, min: 0, max: ushort.MaxValue);
+        var value = (ushort)ReadInt("Register value", 1, 0, ushort.MaxValue);
         var (result, registerValue) = _modbusService.SendFc6(message, value);
 
         WriteResult(result, result.Success ? $"Returned register value: {registerValue}" : null);
@@ -144,9 +143,9 @@ internal sealed class ModbusConsoleApp(
     {
         return new ModbusRequestMessage
         {
-            Address = (byte)ReadInt("Slave address", 1, min: 0, max: byte.MaxValue),
-            Start = (ushort)ReadInt("Start address", 0, min: 0, max: ushort.MaxValue),
-            Register = (ushort)ReadInt("Register/count", 1, min: 1, max: ushort.MaxValue)
+            Address = (byte)ReadInt("Slave address", 1, 0, byte.MaxValue),
+            Start = (ushort)ReadInt("Start address", 0, 0, ushort.MaxValue),
+            Register = (ushort)ReadInt("Register/count", 1, 1, ushort.MaxValue)
         };
     }
 
@@ -154,8 +153,8 @@ internal sealed class ModbusConsoleApp(
     {
         return new ModbusRequestMessage
         {
-            Address = (byte)ReadInt("Slave address", 1, min: 0, max: byte.MaxValue),
-            Start = (ushort)ReadInt("Output/register address", 0, min: 0, max: ushort.MaxValue),
+            Address = (byte)ReadInt("Slave address", 1, 0, byte.MaxValue),
+            Start = (ushort)ReadInt("Output/register address", 0, 0, ushort.MaxValue),
             Register = 1
         };
     }
@@ -189,14 +188,11 @@ internal sealed class ModbusConsoleApp(
                 break;
             }
 
-            if (valid)
-            {
-                return values;
-            }
+            if (valid) return values;
         }
     }
 
-    private static short[] ReadShortArray(ushort expectedCount, string label)
+    private static ushort[] ReadShortArray(ushort expectedCount, string label)
     {
         while (true)
         {
@@ -209,26 +205,23 @@ internal sealed class ModbusConsoleApp(
                 continue;
             }
 
-            var values = new short[parts.Length];
+            var values = new ushort[parts.Length];
             var valid = true;
 
             for (var i = 0; i < parts.Length; i++)
             {
-                if (short.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+                if (ushort.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
                 {
                     values[i] = parsed;
                     continue;
                 }
 
-                WriteStatus($"Invalid Int16 value: {parts[i]}");
+                WriteStatus($"Invalid UInt16 value: {parts[i]}");
                 valid = false;
                 break;
             }
 
-            if (valid)
-            {
-                return values;
-            }
+            if (valid) return values;
         }
     }
 
@@ -239,15 +232,10 @@ internal sealed class ModbusConsoleApp(
             Console.Write($"{prompt} [{defaultValue}]: ");
             var input = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return defaultValue;
-            }
+            if (string.IsNullOrWhiteSpace(input)) return defaultValue;
 
-            if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value >= min && value <= max)
-            {
-                return value;
-            }
+            if (int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) &&
+                value >= min && value <= max) return value;
 
             WriteStatus($"Enter a value between {min} and {max}.");
         }
@@ -260,15 +248,9 @@ internal sealed class ModbusConsoleApp(
             Console.Write($"{prompt} [{defaultValue}] ({string.Join(", ", Enum.GetNames<TEnum>())}): ");
             var input = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return defaultValue;
-            }
+            if (string.IsNullOrWhiteSpace(input)) return defaultValue;
 
-            if (Enum.TryParse<TEnum>(input, ignoreCase: true, out var value))
-            {
-                return value;
-            }
+            if (Enum.TryParse<TEnum>(input, true, out var value)) return value;
 
             WriteStatus($"Unknown {prompt} value.");
         }
@@ -281,15 +263,9 @@ internal sealed class ModbusConsoleApp(
             Console.Write($"{prompt} [{(defaultValue ? "1" : "0")}] (1/0,true/false): ");
             var input = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return defaultValue;
-            }
+            if (string.IsNullOrWhiteSpace(input)) return defaultValue;
 
-            if (TryParseBool(input, out var value))
-            {
-                return value;
-            }
+            if (TryParseBool(input, out var value)) return value;
 
             WriteStatus("Enter 1/0 or true/false.");
         }
@@ -300,24 +276,14 @@ internal sealed class ModbusConsoleApp(
         while (true)
         {
             if (defaultValue is null)
-            {
                 Console.Write($"{prompt}: ");
-            }
             else
-            {
                 Console.Write($"{prompt} [{defaultValue}]: ");
-            }
 
             var input = Console.ReadLine();
-            if (!string.IsNullOrWhiteSpace(input))
-            {
-                return input.Trim();
-            }
+            if (!string.IsNullOrWhiteSpace(input)) return input.Trim();
 
-            if (!string.IsNullOrWhiteSpace(defaultValue))
-            {
-                return defaultValue;
-            }
+            if (!string.IsNullOrWhiteSpace(defaultValue)) return defaultValue;
 
             WriteStatus("Value is required.");
         }
@@ -325,10 +291,7 @@ internal sealed class ModbusConsoleApp(
 
     private static bool TryParseBool(string input, out bool value)
     {
-        if (bool.TryParse(input, out value))
-        {
-            return true;
-        }
+        if (bool.TryParse(input, out value)) return true;
 
         switch (input.Trim().ToLowerInvariant())
         {
@@ -368,7 +331,7 @@ internal sealed class ModbusConsoleApp(
     {
         Console.WriteLine(message);
         Console.WriteLine("Press any key to continue...");
-        Console.ReadKey(intercept: true);
+        Console.ReadKey(true);
         Console.WriteLine();
     }
 }

@@ -202,19 +202,165 @@ public class ModbusRtuServiceTests
     }
 
     [Fact]
-    public void SendFc3_ShouldFail_WhenByteCountMismatch()
+    public void SendFc1_ShouldVerifyEcho()
     {
-        // FC3: address=0x01, function=0x03, byteCount=0x02 (wrong, should be 0x04 for 2 registers)
-        // Build the response with the wrong byte count from the start so CRC is valid
-        // Response: [addr=0x01, func=0x03, byteCount=0x02, data=0x000A, CRC]
-        var response = BuildResponse(0x01, 0x03, 0x02, 0x00, 0x0A);
-
+        var response = BuildResponse(0x01, 0x01, 0x01, 0x02);
         var service = CreateService(response);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 8 };
+
+        var (result, coils) = service.SendFc1(message);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public void SendFc1_ShouldThrowTimeout_WhenEchoTooShort()
+    {
+        var fake = new FakeSerialConnectionService(new byte[] { 0x01, 0x01 }) { IsSerialPortOpen = true };
+        var service = new ModbusRtuService(fake);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 8 };
+
+        var (result, _) = service.SendFc1(message);
+
+        Assert.False(result.Success);
+        Assert.Contains("Write timeout", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc3_ShouldThrowTimeout_WhenEchoTooShort()
+    {
+        var fake = new FakeSerialConnectionService(new byte[] { 0x01, 0x03 }) { IsSerialPortOpen = true };
+        var service = new ModbusRtuService(fake);
         var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 2 };
 
         var (result, _) = service.SendFc3(message);
 
         Assert.False(result.Success);
-        Assert.Contains("Mismatch in expected register data size", result.ErrorMessage);
+        Assert.Contains("Write timeout", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc15_ShouldVerifyEcho()
+    {
+        var response = BuildResponse(0x01, 0x0F, 0x00, 0x00, 0x00, 0x08);
+        var service = CreateService(response);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 8 };
+
+        var values = new[] { true, false, false, false, false, false, false, false };
+        var result = service.SendFc15(message, values);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public void SendFc15_ShouldThrowTimeout_WhenEchoTooShort()
+    {
+        var fake = new FakeSerialConnectionService(new byte[] { 0x01, 0x0F }) { IsSerialPortOpen = true };
+        var service = new ModbusRtuService(fake);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 8 };
+
+        var values = new[] { true, false, false, false, false, false, false, false };
+        var result = service.SendFc15(message, values);
+
+        Assert.False(result.Success);
+        Assert.Contains("Write timeout", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc16_ShouldVerifyEcho()
+    {
+        var response = BuildResponse(0x01, 0x10, 0x00, 0x00, 0x00, 0x02);
+        var service = CreateService(response);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 2 };
+
+        var values = new ushort[] { 0x000A, 0x000B };
+        var result = service.SendFc16(message, values);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public void SendFc16_ShouldThrowTimeout_WhenEchoTooShort()
+    {
+        var fake = new FakeSerialConnectionService(new byte[] { 0x01, 0x10 }) { IsSerialPortOpen = true };
+        var service = new ModbusRtuService(fake);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 2 };
+
+        var values = new ushort[] { 0x000A, 0x000B };
+        var result = service.SendFc16(message, values);
+
+        Assert.False(result.Success);
+        Assert.Contains("Write timeout", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc5_ShouldThrowException_WhenExceptionResponse()
+    {
+        var response = new byte[] { 0x01, 0x85, 0x02 }; // FC5 exception: code 0x02
+        var service = CreateService(response);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 1 };
+
+        var (result, coilState) = service.SendFc5(message, true);
+
+        Assert.False(result.Success);
+        Assert.Contains("Modbus exception response", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc15_ShouldThrowException_WhenExceptionResponse()
+    {
+        var response = new byte[] { 0x01, 0x0F, 0x02 }; // FC15 exception: code 0x02
+        var service = CreateService(response);
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 8 };
+
+        var values = new[] { true, false, false, false, false, false, false, false };
+        var result = service.SendFc15(message, values);
+
+        Assert.False(result.Success);
+        Assert.Contains("Modbus exception response", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc1_ShouldFail_WhenRegisterExceedsMax()
+    {
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 3000 };
+        var service = CreateService(new byte[0]);
+        var (result, _) = service.SendFc1(message);
+
+        Assert.False(result.Success);
+        Assert.Contains($"exceeds maximum of {ModbusFrame.MaxReadCoils}", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc3_ShouldFail_WhenRegisterExceedsMax()
+    {
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 200 };
+        var service = CreateService(new byte[0]);
+        var (result, _) = service.SendFc3(message);
+
+        Assert.False(result.Success);
+        Assert.Contains($"exceeds maximum of {ModbusFrame.MaxReadHoldingRegisters}", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc15_ShouldFail_WhenCoilCountExceedsMax()
+    {
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 3000 };
+        var service = CreateService(new byte[0]);
+        var result = service.SendFc15(message, new bool[3000]);
+
+        Assert.False(result.Success);
+        Assert.Contains($"exceeds maximum of {ModbusFrame.MaxWriteMultipleCoils}", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void SendFc16_ShouldFail_WhenRegisterExceedsMax()
+    {
+        var message = new ModbusMessageStub { Address = 0x01, Start = 0, Register = 200 };
+        var service = CreateService(new byte[0]);
+        var result = service.SendFc16(message, new ushort[200]);
+
+        Assert.False(result.Success);
+        Assert.Contains($"exceeds maximum of {ModbusFrame.MaxWriteMultipleRegisters}", result.ErrorMessage);
     }
 }
