@@ -11,9 +11,6 @@ internal sealed class ModbusConsoleApp(
     ModbusRtuService modbusService,
     SerialConnectionService serialConnectionService)
 {
-    private readonly ModbusRtuService _modbusService = modbusService;
-    private readonly SerialConnectionService _serialConnectionService = serialConnectionService;
-
     public async Task RunAsync(string[] args)
     {
         var menu = new ConsoleMenu(args, 0)
@@ -57,7 +54,7 @@ internal sealed class ModbusConsoleApp(
             StopBits = stopBits
         };
 
-        var openResult = _serialConnectionService.Open(settings);
+        var openResult = serialConnectionService.Open(settings);
         WriteStatus(openResult.Success
             ? $"Serial port {portName} opened"
             : $"Failed to open serial port {portName}: {openResult.ErrorMessage}");
@@ -65,7 +62,7 @@ internal sealed class ModbusConsoleApp(
 
     private void CloseSerialPort()
     {
-        var closeResult = _serialConnectionService.Close();
+        var closeResult = serialConnectionService.Close();
         WriteStatus(closeResult.Success
             ? "Serial port closed"
             : $"Failed to close serial port: {closeResult.ErrorMessage}");
@@ -74,7 +71,7 @@ internal sealed class ModbusConsoleApp(
     private void ExecuteFc1()
     {
         var message = ReadBaseMessage();
-        var (result, coils) = _modbusService.SendFc1(message);
+        var (result, coils) = modbusService.SendFc1(message);
 
         WriteResult(result, result.Success ? $"Coils: {FormatValues(coils)}" : null);
     }
@@ -82,7 +79,7 @@ internal sealed class ModbusConsoleApp(
     private void ExecuteFc2()
     {
         var message = ReadBaseMessage();
-        var (result, inputs) = _modbusService.SendFc2(message);
+        var (result, inputs) = modbusService.SendFc2(message);
 
         WriteResult(result, result.Success ? $"Inputs: {FormatValues(inputs)}" : null);
     }
@@ -90,7 +87,7 @@ internal sealed class ModbusConsoleApp(
     private void ExecuteFc3()
     {
         var message = ReadBaseMessage();
-        var (result, registers) = _modbusService.SendFc3(message);
+        var (result, registers) = modbusService.SendFc3(message);
 
         WriteResult(result, result.Success ? $"Holding registers: {FormatValues(registers)}" : null);
     }
@@ -98,7 +95,7 @@ internal sealed class ModbusConsoleApp(
     private void ExecuteFc4()
     {
         var message = ReadBaseMessage();
-        var (result, registers) = _modbusService.SendFc4(message);
+        var (result, registers) = modbusService.SendFc4(message);
 
         WriteResult(result, result.Success ? $"Input registers: {FormatValues(registers)}" : null);
     }
@@ -107,7 +104,7 @@ internal sealed class ModbusConsoleApp(
     {
         var message = ReadSingleAddressMessage();
         var value = ReadBool("Coil value", true);
-        var (result, coilState) = _modbusService.SendFc5(message, value);
+        var (result, coilState) = modbusService.SendFc5(message, value);
 
         WriteResult(result, result.Success ? $"Returned coil state: {coilState}" : null);
     }
@@ -116,7 +113,7 @@ internal sealed class ModbusConsoleApp(
     {
         var message = ReadSingleAddressMessage();
         var value = (ushort)ReadInt("Register value", 1, 0, ushort.MaxValue);
-        var (result, registerValue) = _modbusService.SendFc6(message, value);
+        var (result, registerValue) = modbusService.SendFc6(message, value);
 
         WriteResult(result, result.Success ? $"Returned register value: {registerValue}" : null);
     }
@@ -125,7 +122,7 @@ internal sealed class ModbusConsoleApp(
     {
         var message = ReadBaseMessage();
         var values = ReadBoolArray(message.Register, "coil values");
-        var result = _modbusService.SendFc15(message, values);
+        var result = modbusService.SendFc15(message, values);
 
         WriteResult(result, result.Success ? $"Written coils: {FormatValues(values)}" : null);
     }
@@ -134,7 +131,7 @@ internal sealed class ModbusConsoleApp(
     {
         var message = ReadBaseMessage();
         var values = ReadShortArray(message.Register, "register values");
-        var result = _modbusService.SendFc16(message, values);
+        var result = modbusService.SendFc16(message, values);
 
         WriteResult(result, result.Success ? $"Written registers: {FormatValues(values)}" : null);
     }

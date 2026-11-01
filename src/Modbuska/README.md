@@ -7,14 +7,14 @@ Modbuska is a lightweight .NET 9 library for Modbus RTU communication over seria
 - Modbus RTU over `System.IO.Ports`
 - DI registration via `AddModbus()`
 - Supported function codes:
-  - FC1 - Read Coils
-  - FC2 - Read Discrete Inputs
-  - FC3 - Read Holding Registers
-  - FC4 - Read Input Registers
-  - FC5 - Write Single Coil
-  - FC6 - Write Single Register
-  - FC15 - Write Multiple Coils
-  - FC16 - Write Multiple Registers
+    - FC1 - Read Coils
+    - FC2 - Read Discrete Inputs
+    - FC3 - Read Holding Registers
+    - FC4 - Read Input Registers
+    - FC5 - Write Single Coil
+    - FC6 - Write Single Register
+    - FC15 - Write Multiple Coils
+    - FC16 - Write Multiple Registers
 - Example console application included in repository
 
 ## Installation
@@ -78,7 +78,8 @@ if (!openResult.Success)
 
 ## Example project
 
-The repository contains `Modbuska.Example`, a console sample with menu-based execution of all currently implemented Modbus functions through DI.
+The repository contains `Modbuska.Example`, a console sample with menu-based execution of all currently implemented
+Modbus functions through DI.
 
 ## Pack
 

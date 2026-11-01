@@ -13,6 +13,21 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
     private readonly List<byte[]> _sentBytes = new();
     private int _readOffset;
 
+    /// <summary>
+    ///     All byte arrays written via <see cref="WriteData" />, in order.
+    /// </summary>
+    public IReadOnlyList<byte[]> SentBytes => _sentBytes;
+
+    /// <summary>
+    ///     The last byte array written via <see cref="WriteData" />, or null if nothing has been written.
+    /// </summary>
+    public byte[]? LastSentBytes => _sentBytes.Count > 0 ? _sentBytes[^1] : null;
+
+    /// <summary>
+    ///     When true, <see cref="WriteData" /> throws a <see cref="TimeoutException" /> to simulate a write timeout.
+    /// </summary>
+    public bool WriteTimeout { get; set; }
+
     public bool IsSerialPortOpen { get; set; } = true;
 
     public void DiscardSerialBuffers()
@@ -21,6 +36,10 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
 
     public byte[] ReadExact(int length)
     {
+        if (_readOffset + length > _response.Length)
+            throw new TimeoutException(
+                $"Simulated read timeout: requested {length} bytes but only {_response.Length - _readOffset} bytes remain in the response");
+
         var result = new byte[length];
         Array.Copy(_response, _readOffset, result, 0, length);
         _readOffset += length;
@@ -29,6 +48,9 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
 
     public void WriteData(byte[] data)
     {
+        if (WriteTimeout)
+            throw new TimeoutException("Write timeout: simulated write timeout");
+
         _sentBytes.Add((byte[])data.Clone());
     }
 
@@ -40,15 +62,5 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
     public IOperationResult Close()
     {
         return OperationResult.Ok();
-    }
-
-    /// <summary>
-    ///     Throws if the last WriteData call resulted in fewer bytes than expected,
-    ///     simulating a timeout on the write path.
-    /// </summary>
-    public void ThrowIfWriteTimeout()
-    {
-        if (_sentBytes.Count > 0 && _sentBytes[^1].Length < 3)
-            throw new TimeoutException("Write timeout: response too short after request");
     }
 }

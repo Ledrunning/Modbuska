@@ -26,32 +26,6 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// </summary>
     public bool IsSerialPortOpen => _serialPort.IsOpen;
 
-    private void ExecuteSynchronized(Action action)
-    {
-        _lock.Wait();
-        try
-        {
-            action();
-        }
-        finally
-        {
-            _lock.Release();
-        }
-    }
-
-    private T ExecuteSynchronized<T>(Func<T> func)
-    {
-        _lock.Wait();
-        try
-        {
-            return func();
-        }
-        finally
-        {
-            _lock.Release();
-        }
-    }
-
     /// <summary>
     ///     Discards all data in the serial port's input and output buffers.
     /// </summary>
@@ -96,10 +70,7 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
     /// <param name="data">The data to write.</param>
     public void WriteData(byte[] data)
     {
-        ExecuteSynchronized(() =>
-        {
-            _serialPort.Write(data, 0, data.Length);
-        });
+        ExecuteSynchronized(() => { _serialPort.Write(data, 0, data.Length); });
     }
 
     /// <summary>
@@ -154,5 +125,31 @@ public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnec
                 return OperationResult.Fail($"Failed to close serial port: {ex.Message}");
             }
         });
+    }
+
+    private void ExecuteSynchronized(Action action)
+    {
+        _lock.Wait();
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    private T ExecuteSynchronized<T>(Func<T> func)
+    {
+        _lock.Wait();
+        try
+        {
+            return func();
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 }

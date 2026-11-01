@@ -1,3 +1,4 @@
+using Modbuska.ModbusManager.Constant;
 using Modbuska.ModbusManager.Model;
 
 namespace Modbuska.ModbusManager.Extension;
@@ -55,21 +56,23 @@ public static class ModbusExtension
         if (values != null)
         {
             // Functions with an array of values (FC15, FC16)
-            var byteCount = values.Length * 2;
-            buffer = new byte[9 + byteCount];
+            var byteCount = values.Length * ModbusFrame.BytesPerRegister;
+            buffer = new byte[ModbusFrame.WriteRequestHeaderSize + byteCount + ModbusFrame.CrcSize];
 
             buffer[ModbusFrame.AddressIndex] = message.Address;
             buffer[ModbusFrame.TypeIndex] = message.Type;
-            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.HighByteShift);
             buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
-            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.MessageSize);
+            buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.HighByteShift);
             buffer[ModbusFrame.RegisterIndexLow] = (byte)message.Register;
-            buffer[6] = (byte)byteCount;
+            buffer[ModbusFrame.WriteRequestByteCountIndex] = (byte)byteCount;
 
             for (var i = 0; i < values.Length; i++)
             {
-                buffer[7 + i * 2] = (byte)(values[i] >> ModbusFrame.MessageSize);
-                buffer[8 + i * 2] = (byte)values[i];
+                buffer[ModbusFrame.WriteRequestHeaderSize + i * ModbusFrame.BytesPerRegister] =
+                    (byte)(values[i] >> ModbusFrame.HighByteShift);
+                buffer[ModbusFrame.WriteRequestHeaderSize + i * ModbusFrame.BytesPerRegister + 1] =
+                    (byte)values[i];
             }
         }
         else if (singleValue.HasValue)

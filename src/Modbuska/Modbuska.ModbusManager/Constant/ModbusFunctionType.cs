@@ -1,4 +1,4 @@
-namespace Modbuska.ModbusManager.Model;
+namespace Modbuska.ModbusManager.Constant;
 
 /// <summary>
 ///     Modbus function codes supported by the library.

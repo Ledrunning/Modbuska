@@ -1,4 +1,5 @@
 using Modbuska.ModbusManager.Abstraction;
+using Modbuska.ModbusManager.Constant;
 using Modbuska.ModbusManager.Extension;
 using Modbuska.ModbusManager.Model;
 using Modbuska.ModbusManager.Results;
@@ -11,14 +12,14 @@ namespace Modbuska.ModbusManager.Service;
 public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 {
     private readonly ISerialConnectionService _serialConnectionService = serialConnectionService;
-    private readonly object _transactionLock = new();
+    private readonly Lock _transactionLock = new();
 
     private static IOperationResult ValidateAddress(byte address)
     {
         if (address == ModbusFrame.BroadcastAddress)
             return OperationResult.Ok();
 
-        if (address < ModbusFrame.MinSlaveAddress || address > ModbusFrame.MaxSlaveAddress)
+        if (address is < ModbusFrame.MinSlaveAddress or > ModbusFrame.MaxSlaveAddress)
             return OperationResult.Fail(
                 $"Slave address must be between {ModbusFrame.MinSlaveAddress} and {ModbusFrame.MaxSlaveAddress} (0 for broadcast)");
 
@@ -28,8 +29,8 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     private static IOperationResult ValidateWriteEcho(byte[] request, byte[] response)
     {
         // Write responses echo the request header: address + function + start address + quantity/value
-        var echoLength = ModbusFrame.WriteResponseHeaderSize + ModbusFrame.WriteResponsePayloadSize -
-                         ModbusFrame.CrcSize;
+        const int echoLength = ModbusFrame.WriteResponseHeaderSize + ModbusFrame.WriteResponsePayloadSize -
+                               ModbusFrame.CrcSize;
         if (response.Length < echoLength)
             return OperationResult.Fail("Write response is too short to contain echo data");
 
@@ -108,6 +109,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 
             message.Type = (byte)function;
 
+            if (message.Address == ModbusFrame.BroadcastAddress)
+                return (OperationResult.Fail("Read operations are not supported for broadcast address (0)"), default!);
+
             _serialConnectionService.DiscardSerialBuffers();
 
             byte[] response;
@@ -116,7 +120,6 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             try
             {
                 _serialConnectionService.WriteData(request);
-                _serialConnectionService.ThrowIfWriteTimeout();
                 response = ReadReadFunctionResponse();
             }
             catch (Exception ex)
@@ -144,13 +147,15 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             if (!_serialConnectionService.IsSerialPortOpen)
                 return (OperationResult.Fail("Serial port is closed"), default!);
 
-            message.Type = (byte)function;
-
             _serialConnectionService.DiscardSerialBuffers();
 
             try
             {
                 _serialConnectionService.WriteData(request);
+
+                if (message.Address == ModbusFrame.BroadcastAddress)
+                    return (OperationResult.Ok(), default!);
+
                 var response = ReadWriteFunctionResponse();
 
                 var validationResult = ValidateResponse(response, message, (byte)function);
@@ -187,8 +192,6 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             return (OperationResult.Fail($"Requested coil count exceeds maximum of {ModbusFrame.MaxReadCoils}"), []);
 
         var coilByteCount = (message.Register + 7) / 8;
-        if (coilByteCount > byte.MaxValue)
-            return (OperationResult.Fail("Requested coil count is too large"), []);
 
         return ExecuteRead(message, ModbusFunctionType.ReadCoils, "FC1", response =>
         {
@@ -261,8 +264,6 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
                 []);
 
         var byteCount = (message.Register + 7) / 8;
-        if (byteCount > byte.MaxValue)
-            return (OperationResult.Fail("Requested input count is too large"), []);
 
         return ExecuteRead(message, ModbusFunctionType.ReadDiscreteInputs, "FC2", response =>
         {
@@ -322,8 +323,21 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     /// <param name="message">The Modbus message containing the slave address and coil address.</param>
     /// <param name="value">The coil state to write (<c>true</c> for ON, <c>false</c> for OFF).</param>
     /// <returns>A tuple containing the operation result and the confirmed coil state.</returns>
+    /// <remarks>
+    ///     When <paramref name="message" />.<see cref="ModbusMessage.Address" /> is
+    ///     <see cref="ModbusFrame.BroadcastAddress" /> (0),
+    ///     no slave response is expected. The method returns <see cref="IOperationResult.Ok" /> with a default coil state of
+    ///     <c>false</c>.
+    ///     Do not interpret <c>coilState == false</c> as the slave reporting that the coil is OFF — it simply means no
+    ///     confirmation was
+    ///     received (and none was expected).
+    /// </remarks>
     public (IOperationResult result, bool coilState) SendFc5(ModbusMessage message, bool value)
     {
+        var addressResult = ValidateAddress(message.Address);
+        if (!addressResult.Success)
+            return (addressResult, false);
+
         message.Type = (byte)ModbusFunctionType.WriteSingleCoil;
         var coilValue = value ? ModbusFrame.CoilOnValue : ModbusFrame.CoilOffValue;
         var request = message.BuildMessage(coilValue);
@@ -346,8 +360,21 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     /// <param name="message">The Modbus message containing the slave address and register address.</param>
     /// <param name="value">The value to write to the register.</param>
     /// <returns>A tuple containing the operation result and the confirmed register value.</returns>
+    /// <remarks>
+    ///     When <paramref name="message" />.<see cref="ModbusMessage.Address" /> is
+    ///     <see cref="ModbusFrame.BroadcastAddress" /> (0),
+    ///     no slave response is expected. The method returns <see cref="IOperationResult.Ok" /> with a default register value
+    ///     of <c>0</c>.
+    ///     Do not interpret <c>registerValue == 0</c> as the slave reporting that the register contains zero — it simply means
+    ///     no confirmation
+    ///     was received (and none was expected).
+    /// </remarks>
     public (IOperationResult result, ushort registerValue) SendFc6(ModbusMessage message, ushort value)
     {
+        var addressResult = ValidateAddress(message.Address);
+        if (!addressResult.Success)
+            return (addressResult, 0);
+
         message.Type = (byte)ModbusFunctionType.WriteSingleRegister;
         var request = message.BuildMessage(value);
 
@@ -392,16 +419,16 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         message.Type = (byte)ModbusFunctionType.WriteMultipleCoils;
         buffer[ModbusFrame.AddressIndex] = message.Address;
         buffer[ModbusFrame.TypeIndex] = message.Type;
-        buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> 8);
+        buffer[ModbusFrame.StartIndexHigh] = (byte)(message.Start >> ModbusFrame.HighByteShift);
         buffer[ModbusFrame.StartIndexLow] = (byte)message.Start;
-        buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> 8);
+        buffer[ModbusFrame.RegisterIndexHigh] = (byte)(message.Register >> ModbusFrame.HighByteShift);
         buffer[ModbusFrame.RegisterIndexLow] = (byte)message.Register;
         buffer[ModbusFrame.WriteRequestByteCountIndex] = (byte)byteCount;
 
-        // Pack LSB bits first (data starts at offset 7 in FC15 request frame)
+        // Pack LSB bits first (data starts at offset WriteRequestHeaderSize in FC15 request frame)
         for (var i = 0; i < values.Length; i++)
             if (values[i])
-                buffer[7 + i / 8] |= (byte)(1 << (i % 8));
+                buffer[ModbusFrame.WriteRequestHeaderSize + i / 8] |= (byte)(1 << (i % 8));
 
         // CRC
         var crc = buffer.ComputeCrc();

@@ -1,4 +1,4 @@
-namespace Modbuska.ModbusManager.Model;
+namespace Modbuska.ModbusManager.Constant;
 
 /// <summary>
 ///     Protocol-level constants for Modbus RTU frames.

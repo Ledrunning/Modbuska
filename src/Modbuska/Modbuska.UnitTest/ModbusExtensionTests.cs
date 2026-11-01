@@ -1,5 +1,5 @@
+using Modbuska.ModbusManager.Constant;
 using Modbuska.ModbusManager.Extension;
-using Modbuska.ModbusManager.Model;
 using Xunit;
 
 namespace Modbuska.UnitTest;

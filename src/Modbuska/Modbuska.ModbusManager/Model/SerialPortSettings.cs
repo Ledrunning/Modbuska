@@ -10,27 +10,27 @@ public class SerialPortSettings
     /// <summary>
     ///     Gets or sets the serial port name (e.g., "COM3" on Windows, "/dev/ttyUSB0" on Linux).
     /// </summary>
-    public string? PortName { get; set; }
+    public string? PortName { get; init; }
 
     /// <summary>
     ///     Gets or sets the baud rate.
     /// </summary>
-    public int BaudRate { get; set; }
+    public int BaudRate { get; init; }
 
     /// <summary>
     ///     Gets or sets the number of data bits.
     /// </summary>
-    public int DataBits { get; set; }
+    public int DataBits { get; init; }
 
     /// <summary>
     ///     Gets or sets the parity.
     /// </summary>
-    public Parity Parity { get; set; }
+    public Parity Parity { get; init; }
 
     /// <summary>
     ///     Gets or sets the stop bits.
     /// </summary>
-    public StopBits StopBits { get; set; }
+    public StopBits StopBits { get; init; }
 
     /// <summary>
     ///     Gets or sets the read timeout in milliseconds. Defaults to 500.
