@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.ModbusManager", "Modbuska.ModbusManager\Modbuska.ModbusManager.csproj", "{A672AF72-7A09-4086-9CE9-490509166F61}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.UnitTest", "Modbuska.UnitTest\Modbuska.UnitTest.csproj", "{111DCFCC-319A-4F02-BDEE-66A81BAC44B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modbuska.Example", "Modbuska.Example\Modbuska.Example.csproj", "{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A672AF72-7A09-4086-9CE9-490509166F61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A672AF72-7A09-4086-9CE9-490509166F61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A672AF72-7A09-4086-9CE9-490509166F61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A672AF72-7A09-4086-9CE9-490509166F61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{111DCFCC-319A-4F02-BDEE-66A81BAC44B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{111DCFCC-319A-4F02-BDEE-66A81BAC44B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{111DCFCC-319A-4F02-BDEE-66A81BAC44B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{111DCFCC-319A-4F02-BDEE-66A81BAC44B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A94F43DE-8768-4E16-9CD2-73E2E792AB3B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
