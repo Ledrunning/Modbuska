@@ -1,6 +1,7 @@
 # Modbuska
+## Please note! The app is currently under development!
 
-Modbuska is a lightweight .NET 9 library for Modbus RTU communication over serial ports.
+Modbuska is a lightweight .NET 10 library for Modbus RTU communication over serial ports.
 
 ## Features
 
