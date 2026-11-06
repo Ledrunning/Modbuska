@@ -37,8 +37,10 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
     public byte[] ReadExact(int length)
     {
         if (_readOffset + length > _response.Length)
+        {
             throw new TimeoutException(
                 $"Simulated read timeout: requested {length} bytes but only {_response.Length - _readOffset} bytes remain in the response");
+        }
 
         var result = new byte[length];
         Array.Copy(_response, _readOffset, result, 0, length);
@@ -49,7 +51,9 @@ internal sealed class FakeSerialConnectionService(byte[] response) : ISerialConn
     public void WriteData(byte[] data)
     {
         if (WriteTimeout)
+        {
             throw new TimeoutException("Write timeout: simulated write timeout");
+        }
 
         _sentBytes.Add((byte[])data.Clone());
     }
