@@ -36,8 +36,8 @@ public static class ModbusExtension
             }
         }
 
-        crc[1] = (byte)((crcFull >> ModbusFrame.HighByteShift) & 0xFF); // Crc High
-        crc[0] = (byte)(crcFull & 0xFF); // Crc low
+        crc[ModbusFrame.CrcHighIndex] = (byte)((crcFull >> ModbusFrame.HighByteShift) & 0xFF); // Crc High
+        crc[ModbusFrame.CrcLowIndex] = (byte)(crcFull & 0xFF); // Crc low
 
         return crc;
     }
