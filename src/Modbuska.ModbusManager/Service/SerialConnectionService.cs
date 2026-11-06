@@ -9,16 +9,25 @@ namespace Modbuska.ModbusManager.Service;
 /// <summary>
 ///     Provides a concrete implementation of <see cref="ISerialConnectionService" /> for communicating over a serial port.
 /// </summary>
-public class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnectionService> logger)
+public sealed class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnectionService> logger)
     : ISerialConnectionService, IDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly SerialPort _serialPort = serialPort ?? throw new ArgumentNullException(nameof(serialPort));
+    private bool _disposed;
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _lock.Dispose();
+        _disposed = true;
+
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>

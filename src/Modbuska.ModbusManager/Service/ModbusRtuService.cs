@@ -17,11 +17,15 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     private static IOperationResult ValidateAddress(byte address)
     {
         if (address == ModbusFrame.BroadcastAddress)
+        {
             return OperationResult.Ok();
+        }
 
         if (address is < ModbusFrame.MinSlaveAddress or > ModbusFrame.MaxSlaveAddress)
+        {
             return OperationResult.Fail(
-                $"Slave address must be between {ModbusFrame.MinSlaveAddress} and {ModbusFrame.MaxSlaveAddress} (0 for broadcast)");
+               $"Slave address must be between {ModbusFrame.MinSlaveAddress} and {ModbusFrame.MaxSlaveAddress} (0 for broadcast)");
+        }
 
         return OperationResult.Ok();
     }
@@ -32,28 +36,45 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         const int echoLength = ModbusFrame.WriteResponseHeaderSize + ModbusFrame.WriteResponsePayloadSize -
                                ModbusFrame.CrcSize;
         if (response.Length < echoLength)
+        {
             return OperationResult.Fail("Write response is too short to contain echo data");
+        }
 
         for (var i = 0; i < echoLength; i++)
+        {
             if (response[i] != request[i])
+            {
                 return OperationResult.Fail(
-                    $"Write response echo mismatch at byte {i}: expected 0x{request[i]:X2}, got 0x{response[i]:X2}");
+                   $"Write response echo mismatch at byte {i}: expected 0x{request[i]:X2}, got 0x{response[i]:X2}");
+            }
+        }
 
         return OperationResult.Ok();
     }
 
     private static IOperationResult ValidateResponse(byte[] response, ModbusMessage message, byte functionCode)
     {
-        if (!response.CheckResponse()) return OperationResult.Fail("Invalid CRC in response");
+        if (!response.CheckResponse())
+        {
+            return OperationResult.Fail("Invalid CRC in response");
+        }
 
         if (response[ModbusFrame.AddressIndex] != message.Address)
+        {
             return OperationResult.Fail("Unexpected slave address in response");
+        }
 
         var responseFunction = response[ModbusFrame.TypeIndex];
-        if (responseFunction == (functionCode | ModbusFrame.ExceptionFlag))
-            return OperationResult.Fail($"Modbus exception response. Code: 0x{response[2]:X2}");
 
-        if (responseFunction != functionCode) return OperationResult.Fail("Unexpected function code in response");
+        if (responseFunction == (functionCode | ModbusFrame.ExceptionFlag))
+        {
+            return OperationResult.Fail($"Modbus exception response. Code: 0x{response[2]:X2}");
+        }
+
+        if (responseFunction != functionCode)
+        {
+            return OperationResult.Fail("Unexpected function code in response");
+        }
 
         return OperationResult.Ok();
     }
@@ -105,12 +126,16 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         lock (_transactionLock)
         {
             if (!_serialConnectionService.IsSerialPortOpen)
+            {
                 return (OperationResult.Fail("Serial port is closed"), default!);
+            }
 
             message.Type = (byte)function;
 
             if (message.Address == ModbusFrame.BroadcastAddress)
+            {
                 return (OperationResult.Fail("Read operations are not supported for broadcast address (0)"), default!);
+            }
 
             _serialConnectionService.DiscardSerialBuffers();
 
@@ -128,7 +153,11 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
             }
 
             var validationResult = ValidateResponse(response, message, (byte)function);
-            if (!validationResult.Success) return (validationResult, default!);
+
+            if (!validationResult.Success)
+            {
+                return (validationResult, default!);
+            }
 
             var parsed = parser(response);
             return (parsed.Result, parsed.Data);
@@ -145,7 +174,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         lock (_transactionLock)
         {
             if (!_serialConnectionService.IsSerialPortOpen)
+            {
                 return (OperationResult.Fail("Serial port is closed"), default!);
+            }
 
             _serialConnectionService.DiscardSerialBuffers();
 
@@ -154,15 +185,25 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
                 _serialConnectionService.WriteData(request);
 
                 if (message.Address == ModbusFrame.BroadcastAddress)
+                {
                     return (OperationResult.Ok(), default!);
+                }
 
                 var response = ReadWriteFunctionResponse();
 
                 var validationResult = ValidateResponse(response, message, (byte)function);
-                if (!validationResult.Success) return (validationResult, default!);
+
+                if (!validationResult.Success)
+                {
+                    return (validationResult, default!);
+                }
 
                 var echoResult = ValidateWriteEcho(request, response);
-                if (!echoResult.Success) return (echoResult, default!);
+
+                if (!echoResult.Success)
+                {
+                    return (echoResult, default!);
+                }
 
                 var parsed = parser(response);
                 return (parsed.Result, parsed.Data);
@@ -183,13 +224,19 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, []);
+        }
 
         if (message.Register == 0)
+        {
             return (OperationResult.Fail("Coil count must be greater than 0"), []);
+        }
 
         if (message.Register > ModbusFrame.MaxReadCoils)
+        {
             return (OperationResult.Fail($"Requested coil count exceeds maximum of {ModbusFrame.MaxReadCoils}"), []);
+        }
 
         var coilByteCount = (message.Register + 7) / 8;
 
@@ -219,26 +266,36 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, []);
+        }
 
         if (message.Register == 0)
+        {
             return (OperationResult.Fail("Register count must be greater than 0"), []);
+        }
 
         if (message.Register > ModbusFrame.MaxReadHoldingRegisters)
+        {
             return (
                 OperationResult.Fail(
                     $"Requested register count exceeds maximum of {ModbusFrame.MaxReadHoldingRegisters}"), []);
+        }
 
         return ExecuteRead(message, ModbusFunctionType.ReadHoldingRegisters, "FC3", response =>
         {
             var expectedByteCount = message.Register * 2;
             if (response[ModbusFrame.ByteCountIndex] != expectedByteCount)
+            {
                 return new ParseResult<ushort[]>(OperationResult.Fail("Mismatch in expected register data size"), []);
+            }
 
             var obtainedData = new ushort[message.Register];
             for (var i = 0; i < message.Register; i++)
+            {
                 obtainedData[i] = (ushort)((response[ModbusFrame.DataStartIndex + 2 * i] << 8) |
                                            response[ModbusFrame.DataStartIndex + 2 * i + 1]);
+            }
 
             return new ParseResult<ushort[]>(OperationResult.Ok(), obtainedData);
         });
@@ -253,22 +310,28 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, []);
+        }
 
         if (message.Register == 0)
+        {
             return (OperationResult.Fail("Input count must be greater than 0"), []);
+        }
 
         if (message.Register > ModbusFrame.MaxReadDiscreteInputs)
-            return (
-                OperationResult.Fail($"Requested input count exceeds maximum of {ModbusFrame.MaxReadDiscreteInputs}"),
-                []);
+        {
+            return (OperationResult.Fail($"Requested input count exceeds maximum of {ModbusFrame.MaxReadDiscreteInputs}"), []);
+        }
 
         var byteCount = (message.Register + 7) / 8;
 
         return ExecuteRead(message, ModbusFunctionType.ReadDiscreteInputs, "FC2", response =>
         {
             if (response[ModbusFrame.ByteCountIndex] != byteCount)
+            {
                 return new ParseResult<bool[]>(OperationResult.Fail("Mismatch in expected input data size"), []);
+            }
 
             var inputs = new bool[message.Register];
             for (var i = 0; i < message.Register; i++)
@@ -291,27 +354,34 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, []);
+        }
 
         if (message.Register == 0)
+        {
             return (OperationResult.Fail("Register count must be greater than 0"), []);
+        }
 
         if (message.Register > ModbusFrame.MaxReadInputRegisters)
-            return (
-                OperationResult.Fail(
-                    $"Requested register count exceeds maximum of {ModbusFrame.MaxReadInputRegisters}"), []);
+        {
+            return (OperationResult.Fail($"Requested register count exceeds maximum of {ModbusFrame.MaxReadInputRegisters}"), []);
+        }
 
         return ExecuteRead(message, ModbusFunctionType.ReadInputRegisters, "FC4", response =>
         {
             var expectedByteCount = message.Register * 2;
             if (response[ModbusFrame.ByteCountIndex] != expectedByteCount)
-                return new ParseResult<ushort[]>(OperationResult.Fail("Mismatch in expected input register data size"),
-                    []);
+            {
+                return new ParseResult<ushort[]>(OperationResult.Fail("Mismatch in expected input register data size"), []);
+            }
 
             var obtainedData = new ushort[message.Register];
             for (var i = 0; i < message.Register; i++)
+            {
                 obtainedData[i] = (ushort)((response[ModbusFrame.DataStartIndex + 2 * i] << 8) |
                                            response[ModbusFrame.DataStartIndex + 2 * i + 1]);
+            }
 
             return new ParseResult<ushort[]>(OperationResult.Ok(), obtainedData);
         });
@@ -336,7 +406,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, false);
+        }
 
         message.Type = (byte)ModbusFunctionType.WriteSingleCoil;
         var coilValue = value ? ModbusFrame.CoilOnValue : ModbusFrame.CoilOffValue;
@@ -345,7 +417,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         return ExecuteWrite(message, ModbusFunctionType.WriteSingleCoil, "FC5", request, response =>
         {
             if (response.Length != ModbusFrame.MessageSize)
+            {
                 return new ParseResult<bool>(OperationResult.Fail("Unexpected FC5 response length"), false);
+            }
 
             var returnedState = response[ModbusFrame.RegisterIndexHigh] == ModbusFrame.CoilOnHighByte &&
                                 response[ModbusFrame.RegisterIndexLow] == ModbusFrame.CoilOnLowByte;
@@ -373,7 +447,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return (addressResult, 0);
+        }
 
         message.Type = (byte)ModbusFunctionType.WriteSingleRegister;
         var request = message.BuildMessage(value);
@@ -381,7 +457,9 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
         return ExecuteWrite(message, ModbusFunctionType.WriteSingleRegister, "FC6", request, response =>
         {
             if (response.Length != ModbusFrame.MessageSize)
+            {
                 return new ParseResult<ushort>(OperationResult.Fail("Unexpected FC6 response length"), 0);
+            }
 
             var returnedValue = (ushort)((response[ModbusFrame.RegisterIndexHigh] << 8) |
                                          response[ModbusFrame.RegisterIndexLow]);
@@ -400,20 +478,27 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return addressResult;
+        }
 
         if (message.Register != values.Length)
+        {
             return OperationResult.Fail("Register count does not match number of coil values");
+        }
 
         if (message.Register == 0)
+        {
             return OperationResult.Fail("Coil count must be greater than 0");
+        }
 
         if (message.Register > ModbusFrame.MaxWriteMultipleCoils)
+        {
             return OperationResult.Fail($"Requested coil count exceeds maximum of {ModbusFrame.MaxWriteMultipleCoils}");
+        }
 
         var byteCount = (values.Length + 7) / 8; // upward rounding
-        var buffer =
-            new byte[ModbusFrame.WriteRequestHeaderSize + byteCount +
+        var buffer = new byte[ModbusFrame.WriteRequestHeaderSize + byteCount +
                      ModbusFrame.CrcSize]; // address+function+start+number+of+bytes+software+data+CRC
 
         message.Type = (byte)ModbusFunctionType.WriteMultipleCoils;
@@ -427,8 +512,12 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
 
         // Pack LSB bits first (data starts at offset WriteRequestHeaderSize in FC15 request frame)
         for (var i = 0; i < values.Length; i++)
+        {
             if (values[i])
+            {
                 buffer[ModbusFrame.WriteRequestHeaderSize + i / 8] |= (byte)(1 << (i % 8));
+            }
+        }
 
         // CRC
         var crc = buffer.ComputeCrc();
@@ -451,17 +540,24 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
     {
         var addressResult = ValidateAddress(message.Address);
         if (!addressResult.Success)
+        {
             return addressResult;
+        }
 
         if (message.Register != values.Length)
+        {
             return OperationResult.Fail("Register count does not match number of values");
+        }
 
         if (message.Register == 0)
+        {
             return OperationResult.Fail("Register count must be greater than 0");
+        }
 
         if (message.Register > ModbusFrame.MaxWriteMultipleRegisters)
-            return OperationResult.Fail(
-                $"Requested register count exceeds maximum of {ModbusFrame.MaxWriteMultipleRegisters}");
+        {
+            return OperationResult.Fail($"Requested register count exceeds maximum of {ModbusFrame.MaxWriteMultipleRegisters}");
+        }
 
         message.Type = (byte)ModbusFunctionType.WriteMultipleRegisters;
         var request = message.BuildMessage(null, values);
@@ -471,6 +567,4 @@ public class ModbusRtuService(ISerialConnectionService serialConnectionService)
                 ? new ParseResult<bool>(OperationResult.Fail("Unexpected FC16 response length"), false)
                 : new ParseResult<bool>(OperationResult.Ok(), true)).result;
     }
-
-    private readonly record struct ParseResult<T>(IOperationResult Result, T Data);
 }
