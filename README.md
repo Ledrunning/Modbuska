@@ -133,7 +133,7 @@ var (coilResult, coilState) = modbus.SendFc5(
 - **Timeouts** are reported as failed results, not thrown.
 - Registers are `ushort` (unsigned 16-bit), as defined by the Modbus specification.
 
-## Hardware test with ESP8266
+## Hardware test with ESP8266 (Node MCU V3 board)
 
 The repository includes a demo ESP8266 slave firmware in `src/FirmwareSlave/ModbuskaSlaveTester`, built with
 [PlatformIO](https://platformio.org/) on top of the
