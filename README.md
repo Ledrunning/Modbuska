@@ -1,6 +1,11 @@
 # Modbuska
 
+<<<<<<< HEAD
 [![Build](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml)
+=======
+
+[![Build](https://github.com/Ledrunning/TinyPlayer/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/blob/main/.github/workflows/build.yml)
+>>>>>>> 7058e599031482d45eb615f6c5c94e676685b1d4
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
 
@@ -135,10 +140,15 @@ var (coilResult, coilState) = modbus.SendFc5(
 
 ## Hardware test with ESP8266
 
+<<<<<<< HEAD
 The repository includes a demo slave firmware for ESP8266 (`src/FirmwareSlave/ModbuskaSlaveTester`, built with
 [PlatformIO](https://platformio.org/), based on the [modbus-esp8266](https://github.com/emelianov/modbus-esp8266)
 library; check its license for your use) and the `Modbuska.Example` console app, so you can verify everything on
 real hardware.
+=======
+The repository includes a demo slave firmware for ESP8266 (in `src/FirmwareSlave/ModbuskaSlaveTester`, powered by PlatformIO, and the
+`Modbuska.Example` console app, so you can verify everything on real hardware.
+>>>>>>> 7058e599031482d45eb615f6c5c94e676685b1d4
 
 **What the firmware does:** slave ID 1, 16 coils / discrete inputs / input registers / holding registers.
 Coils start as `false`, discrete inputs alternate `true/false`, input registers are `i * 100`, holding registers are
