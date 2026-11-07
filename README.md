@@ -1,7 +1,6 @@
 # Modbuska
 
-
-[![Build](https://github.com/Ledrunning/TinyPlayer/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/blob/main/.github/workflows/build.yml)
+[![Build](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
 
@@ -43,8 +42,8 @@ Built for quick device testing and prototyping: open a serial port, read or writ
 Clone the repository and reference the project:
 
 ```bash
-git clone https://github.com/<your-user>/Modbuska.git
-dotnet add <your-project> reference Modbuska/Modbuska.ModbusManager/Modbuska.ModbusManager.csproj
+git clone https://github.com/Ledrunning/Modbuska.git
+dotnet add <your-project> reference Modbuska/src/Modbuska.ModbusManager/Modbuska.ModbusManager.csproj
 ```
 
 ## Quick start
@@ -134,10 +133,12 @@ var (coilResult, coilState) = modbus.SendFc5(
 - **Timeouts** are reported as failed results, not thrown.
 - Registers are `ushort` (unsigned 16-bit), as defined by the Modbus specification.
 
-## Hardware test with ESP8266
+## Hardware test with ESP8266 (Node MCU V3 board)
 
-The repository includes a demo slave firmware for ESP8266 (in `src/FirmwareSlave/ModbuskaSlaveTester`, powered by PlatformIO, and the
-`Modbuska.Example` console app, so you can verify everything on real hardware.
+The repository includes a demo ESP8266 slave firmware in `src/FirmwareSlave/ModbuskaSlaveTester`, built with
+[PlatformIO](https://platformio.org/) on top of the
+[modbus-esp8266](https://github.com/emelianov/modbus-esp8266) library (check its license for your use). Together with
+the `Modbuska.Example` console app, it lets you verify everything on real hardware.
 
 **What the firmware does:** slave ID 1, 16 coils / discrete inputs / input registers / holding registers.
 Coils start as `false`, discrete inputs alternate `true/false`, input registers are `i * 100`, holding registers are
@@ -145,7 +146,7 @@ Coils start as `false`, discrete inputs alternate `true/false`, input registers 
 
 ### Preparation
 
-1. Flash the ESP8266 with the provided Arduino sketch.
+1. Build and flash the firmware with PlatformIO (`pio run -t upload` from the firmware project folder).
 2. Connect the board to your computer over USB.
 3. Run `Modbuska.Example` and choose **Open serial** with:
    - Port name: your port (e.g. `COM3` or `/dev/ttyUSB0`)
