@@ -152,6 +152,8 @@ Coils start as `false`, discrete inputs alternate `true/false`, input registers 
    - Port name: your port (e.g. `COM3` or `/dev/ttyUSB0`)
    - Baud rate: `115200`, Data bits: `8`, Parity: `None`, Stop bits: `One`
 
+![CLI Screenshot](cliapp.png)
+
 ### Test scenarios
 
 Run the read checks (FC1-FC4) first on a freshly reset board, because the write checks change its state.
