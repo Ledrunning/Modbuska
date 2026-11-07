@@ -1,5 +1,10 @@
 # Modbuska
 
+
+[![Build](https://github.com/Ledrunning/TinyPlayer/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/blob/main/.github/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
+
 *Pronounced "mod-BAS-ka" (Модбаска).*
 
 A small, dependency-light **Modbus RTU master** library for .NET.
