@@ -135,10 +135,10 @@ var (coilResult, coilState) = modbus.SendFc5(
 
 ## Hardware test with ESP8266
 
-The repository includes a demo slave firmware for ESP8266 (`src/FirmwareSlave/ModbuskaSlaveTester`, built with
-[PlatformIO](https://platformio.org/), based on the [modbus-esp8266](https://github.com/emelianov/modbus-esp8266)
-library; check its license for your use) and the `Modbuska.Example` console app, so you can verify everything on
-real hardware.
+The repository includes a demo ESP8266 slave firmware in `src/FirmwareSlave/ModbuskaSlaveTester`, built with
+[PlatformIO](https://platformio.org/) on top of the
+[modbus-esp8266](https://github.com/emelianov/modbus-esp8266) library (check its license for your use). Together with
+the `Modbuska.Example` console app, it lets you verify everything on real hardware.
 
 **What the firmware does:** slave ID 1, 16 coils / discrete inputs / input registers / holding registers.
 Coils start as `false`, discrete inputs alternate `true/false`, input registers are `i * 100`, holding registers are
