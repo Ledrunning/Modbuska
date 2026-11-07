@@ -1,5 +1,9 @@
 # Modbuska
 
+[![Build](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml/badge.svg)](https://github.com/Ledrunning/Modbuska/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
+
 *Pronounced "mod-BAS-ka" (Модбаска).*
 
 A small, dependency-light **Modbus RTU master** library for .NET.
@@ -38,8 +42,8 @@ Built for quick device testing and prototyping: open a serial port, read or writ
 Clone the repository and reference the project:
 
 ```bash
-git clone https://github.com/<your-user>/Modbuska.git
-dotnet add <your-project> reference Modbuska/Modbuska.ModbusManager/Modbuska.ModbusManager.csproj
+git clone https://github.com/Ledrunning/Modbuska.git
+dotnet add <your-project> reference Modbuska/src/Modbuska.ModbusManager/Modbuska.ModbusManager.csproj
 ```
 
 ## Quick start
@@ -131,9 +135,10 @@ var (coilResult, coilState) = modbus.SendFc5(
 
 ## Hardware test with ESP8266
 
-The repository includes a demo slave firmware for ESP8266 (in `firmware/`, based on the
-[modbus-esp8266](https://github.com/emelianov/modbus-esp8266) library; check its license for your use) and the
-`Modbuska.Example` console app, so you can verify everything on real hardware.
+The repository includes a demo slave firmware for ESP8266 (`src/FirmwareSlave/ModbuskaSlaveTester`, built with
+[PlatformIO](https://platformio.org/), based on the [modbus-esp8266](https://github.com/emelianov/modbus-esp8266)
+library; check its license for your use) and the `Modbuska.Example` console app, so you can verify everything on
+real hardware.
 
 **What the firmware does:** slave ID 1, 16 coils / discrete inputs / input registers / holding registers.
 Coils start as `false`, discrete inputs alternate `true/false`, input registers are `i * 100`, holding registers are
@@ -141,7 +146,7 @@ Coils start as `false`, discrete inputs alternate `true/false`, input registers 
 
 ### Preparation
 
-1. Flash the ESP8266 with the provided Arduino sketch.
+1. Build and flash the firmware with PlatformIO (`pio run -t upload` from the firmware project folder).
 2. Connect the board to your computer over USB.
 3. Run `Modbuska.Example` and choose **Open serial** with:
    - Port name: your port (e.g. `COM3` or `/dev/ttyUSB0`)
