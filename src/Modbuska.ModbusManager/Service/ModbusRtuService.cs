@@ -17,36 +17,6 @@ public class ModbusRtuService(
     ISerialConnectionService serialConnectionService,
     ILogger<ModbusRtuService>? logger = null)
 {
-    private static readonly Action<ILogger, byte, ModbusFunctionType, string, Exception?> _logTxFrame =
-        LoggerMessage.Define<byte, ModbusFunctionType, string>(
-            LogLevel.Trace,
-            new EventId(1, "ModbusRtuService.TxFrame"),
-            "TX SlaveId={SlaveId} Function={Function} Frame={Frame}");
-
-    private static readonly Action<ILogger, byte, ModbusFunctionType, string, Exception?> _logRxFrame =
-        LoggerMessage.Define<byte, ModbusFunctionType, string>(
-            LogLevel.Trace,
-            new EventId(2, "ModbusRtuService.RxFrame"),
-            "RX SlaveId={SlaveId} Function={Function} Frame={Frame}");
-
-    private static readonly Action<ILogger, byte, ModbusFunctionType, string, Exception?> _logTransactionFailure =
-        LoggerMessage.Define<byte, ModbusFunctionType, string>(
-            LogLevel.Warning,
-            new EventId(3, "ModbusRtuService.TransactionFailure"),
-            "Modbus transaction failed. SlaveId={SlaveId} Function={Function} Reason={Reason}");
-
-    private static readonly Action<ILogger, byte, ModbusFunctionType, int, Exception?> _logTransactionCompleted =
-        LoggerMessage.Define<byte, ModbusFunctionType, int>(
-            LogLevel.Debug,
-            new EventId(4, "ModbusRtuService.TransactionCompleted"),
-            "Modbus transaction completed. SlaveId={SlaveId} Function={Function} Count={Count} item(s)");
-
-    private static readonly Action<ILogger, byte, ModbusFunctionType, string, Exception?> _logValidationFailure =
-        LoggerMessage.Define<byte, ModbusFunctionType, string>(
-            LogLevel.Debug,
-            new EventId(5, "ModbusRtuService.ValidationFailure"),
-            "Modbus transaction validation failed. SlaveId={SlaveId} Function={Function} Reason={Reason}");
-
     private readonly ILogger _logger = logger ?? NullLogger<ModbusRtuService>.Instance;
     private readonly ISerialConnectionService _serialConnectionService = serialConnectionService;
     private readonly Lock _transactionLock = new();
@@ -83,7 +53,9 @@ public class ModbusRtuService(
         {
             var reason =
                 $"Slave address must be between {ModbusFrame.MinSlaveAddress} and {ModbusFrame.MaxSlaveAddress} (0 for broadcast)";
-            _logValidationFailure(_logger, address, function, reason, null);
+
+            _logger.LogValidationFailure(address, function, reason);
+
             return OperationResult.Fail(reason);
         }
 
@@ -171,7 +143,7 @@ public class ModbusRtuService(
         {
             if (!_serialConnectionService.IsSerialPortOpen)
             {
-                _logTransactionFailure(_logger, message.Address, function, "Serial port is closed", null);
+                _logger.LogTransactionFailure(message.Address, function, "Serial port is closed");
                 return (OperationResult.Fail("Serial port is closed"), default!);
             }
 
@@ -179,8 +151,8 @@ public class ModbusRtuService(
 
             if (message.Address == ModbusFrame.BroadcastAddress)
             {
-                _logTransactionFailure(_logger, message.Address, function,
-                    "Read operations are not supported for broadcast address (0)", null);
+                _logger.LogTransactionFailure(message.Address, function,
+                    "Read operations are not supported for broadcast address (0)");
                 return (OperationResult.Fail("Read operations are not supported for broadcast address (0)"), default!);
             }
 
@@ -190,7 +162,7 @@ public class ModbusRtuService(
             var request = message.BuildMessage();
 
             if (_logger.IsEnabled(LogLevel.Trace))
-                _logTxFrame(_logger, message.Address, function, FormatFrame(request), null);
+                _logger.LogTxFrame(message.Address, function, FormatFrame(request));
 
             try
             {
@@ -199,18 +171,18 @@ public class ModbusRtuService(
             }
             catch (Exception ex)
             {
-                _logTransactionFailure(_logger, message.Address, function, ex.Message, ex);
+                _logger.LogTransactionFailure(message.Address, function, ex.Message, ex);
                 return (OperationResult.Fail($"Error sending {operationName}: {ex.Message}"), default!);
             }
 
             if (_logger.IsEnabled(LogLevel.Trace))
-                _logRxFrame(_logger, message.Address, function, FormatFrame(response), null);
+                _logger.LogRxFrame(message.Address, function, FormatFrame(response));
 
             var validationResult = ValidateResponse(response, message, message.Type);
 
             if (!validationResult.Success)
             {
-                _logTransactionFailure(_logger, message.Address, function,
+                _logger.LogTransactionFailure(message.Address, function,
                     validationResult.ErrorMessage ?? "Invalid response", null);
                 return (validationResult, default!);
             }
@@ -219,12 +191,12 @@ public class ModbusRtuService(
 
             if (!parsed.Result.Success)
             {
-                _logTransactionFailure(_logger, message.Address, function,
+                _logger.LogTransactionFailure(message.Address, function,
                     parsed.Result.ErrorMessage ?? "Invalid response", null);
                 return (parsed.Result, default!);
             }
 
-            _logTransactionCompleted(_logger, message.Address, function, message.Register, null);
+            _logger.LogTransactionCompleted(message.Address, function, message.Register);
             return (parsed.Result, parsed.Data);
         }
     }
@@ -241,14 +213,14 @@ public class ModbusRtuService(
         {
             if (!_serialConnectionService.IsSerialPortOpen)
             {
-                _logTransactionFailure(_logger, message.Address, function, "Serial port is closed", null);
+                _logger.LogTransactionFailure(message.Address, function, "Serial port is closed", null);
                 return (OperationResult.Fail("Serial port is closed"), default!);
             }
 
             _serialConnectionService.DiscardSerialBuffers();
 
             if (_logger.IsEnabled(LogLevel.Trace))
-                _logTxFrame(_logger, message.Address, function, FormatFrame(request), null);
+                _logger.LogTxFrame(message.Address, function, FormatFrame(request));
 
             try
             {
@@ -256,20 +228,20 @@ public class ModbusRtuService(
 
                 if (message.Address == ModbusFrame.BroadcastAddress)
                 {
-                    _logTransactionCompleted(_logger, message.Address, function, itemCount, null);
+                    _logger.LogTransactionCompleted(message.Address, function, itemCount);
                     return (OperationResult.Ok(), default!);
                 }
 
                 var response = ReadWriteFunctionResponse();
 
                 if (_logger.IsEnabled(LogLevel.Trace))
-                    _logRxFrame(_logger, message.Address, function, FormatFrame(response), null);
+                    _logger.LogTxFrame(message.Address, function, FormatFrame(response));
 
                 var validationResult = ValidateResponse(response, message, message.Type);
 
                 if (!validationResult.Success)
                 {
-                    _logTransactionFailure(_logger, message.Address, function,
+                    _logger.LogTransactionFailure(message.Address, function,
                         validationResult.ErrorMessage ?? "Invalid response", null);
                     return (validationResult, default!);
                 }
@@ -278,7 +250,7 @@ public class ModbusRtuService(
 
                 if (!echoResult.Success)
                 {
-                    _logTransactionFailure(_logger, message.Address, function,
+                    _logger.LogTransactionFailure(message.Address, function,
                         echoResult.ErrorMessage ?? "Invalid response", null);
                     return (echoResult, default!);
                 }
@@ -287,17 +259,17 @@ public class ModbusRtuService(
 
                 if (!parsed.Result.Success)
                 {
-                    _logTransactionFailure(_logger, message.Address, function,
+                    _logger.LogTransactionFailure(message.Address, function,
                         parsed.Result.ErrorMessage ?? "Invalid response", null);
                     return (parsed.Result, default!);
                 }
 
-                _logTransactionCompleted(_logger, message.Address, function, itemCount, null);
+                _logger.LogTransactionCompleted(message.Address, function, itemCount);
                 return (parsed.Result, parsed.Data);
             }
             catch (Exception ex)
             {
-                _logTransactionFailure(_logger, message.Address, function, ex.Message, ex);
+                _logger.LogTransactionFailure(message.Address, function, ex.Message, ex);
                 return (OperationResult.Fail($"Error sending {operationName}: {ex.Message}"), default!);
             }
         }
@@ -316,14 +288,14 @@ public class ModbusRtuService(
         if (message.Register == 0)
         {
             var reason = "Coil count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadCoils, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadCoils, reason);
             return (OperationResult.Fail(reason), []);
         }
 
         if (message.Register > ModbusFrame.MaxReadCoils)
         {
             var reason = $"Requested coil count exceeds maximum of {ModbusFrame.MaxReadCoils}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadCoils, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadCoils, reason);
             return (OperationResult.Fail(reason), []);
         }
 
@@ -359,14 +331,14 @@ public class ModbusRtuService(
         if (message.Register == 0)
         {
             var reason = "Register count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadHoldingRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadHoldingRegisters, reason);
             return (OperationResult.Fail(reason), []);
         }
 
         if (message.Register > ModbusFrame.MaxReadHoldingRegisters)
         {
             var reason = $"Requested register count exceeds maximum of {ModbusFrame.MaxReadHoldingRegisters}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadHoldingRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadHoldingRegisters, reason);
             return (OperationResult.Fail(reason), []);
         }
 
@@ -398,14 +370,14 @@ public class ModbusRtuService(
         if (message.Register == 0)
         {
             var reason = "Input count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadDiscreteInputs, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadDiscreteInputs, reason);
             return (OperationResult.Fail(reason), []);
         }
 
         if (message.Register > ModbusFrame.MaxReadDiscreteInputs)
         {
             var reason = $"Requested input count exceeds maximum of {ModbusFrame.MaxReadDiscreteInputs}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadDiscreteInputs, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadDiscreteInputs, reason);
             return (OperationResult.Fail(reason), []);
         }
 
@@ -441,14 +413,14 @@ public class ModbusRtuService(
         if (message.Register == 0)
         {
             var reason = "Register count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadInputRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadInputRegisters, reason);
             return (OperationResult.Fail(reason), []);
         }
 
         if (message.Register > ModbusFrame.MaxReadInputRegisters)
         {
             var reason = $"Requested register count exceeds maximum of {ModbusFrame.MaxReadInputRegisters}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.ReadInputRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.ReadInputRegisters, reason);
             return (OperationResult.Fail(reason), []);
         }
 
@@ -553,21 +525,21 @@ public class ModbusRtuService(
         if (message.Register != values.Length)
         {
             var reason = "Register count does not match number of coil values";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleCoils, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleCoils, reason);
             return OperationResult.Fail(reason);
         }
 
         if (message.Register == 0)
         {
             var reason = "Coil count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleCoils, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleCoils, reason);
             return OperationResult.Fail(reason);
         }
 
         if (message.Register > ModbusFrame.MaxWriteMultipleCoils)
         {
             var reason = $"Requested coil count exceeds maximum of {ModbusFrame.MaxWriteMultipleCoils}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleCoils, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleCoils, reason);
             return OperationResult.Fail(reason);
         }
 
@@ -614,21 +586,21 @@ public class ModbusRtuService(
         if (message.Register != values.Length)
         {
             var reason = "Register count does not match number of values";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleRegisters, reason);
             return OperationResult.Fail(reason);
         }
 
         if (message.Register == 0)
         {
             var reason = "Register count must be greater than 0";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleRegisters, reason);
             return OperationResult.Fail(reason);
         }
 
         if (message.Register > ModbusFrame.MaxWriteMultipleRegisters)
         {
             var reason = $"Requested register count exceeds maximum of {ModbusFrame.MaxWriteMultipleRegisters}";
-            _logValidationFailure(_logger, message.Address, ModbusFunctionType.WriteMultipleRegisters, reason, null);
+            _logger.LogValidationFailure(message.Address, ModbusFunctionType.WriteMultipleRegisters, reason);
             return OperationResult.Fail(reason);
         }
 
