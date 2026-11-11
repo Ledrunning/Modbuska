@@ -19,8 +19,8 @@ Built for quick device testing and prototyping: open a serial port, read or writ
 
 ## Features
 
-- Modbus RTU over `System.IO.Ports`
 - DI registration via `AddModbus()`
+- Optional structured logging with hex TX/RX frame traces (see [Logging](#logging))
 - Supported function codes:
   - FC1 - Read Coils
   - FC2 - Read Discrete Inputs
@@ -133,7 +133,7 @@ var (coilResult, coilState) = modbus.SendFc5(
 - **Timeouts** are reported as failed results, not thrown.
 - Registers are `ushort` (unsigned 16-bit), as defined by the Modbus specification.
 
-## Hardware test with ESP8266 (Node MCU V3 board)
+## Hardware test with ESP8266 (NodeMCU V3 board)
 
 The repository includes a demo ESP8266 slave firmware in `src/FirmwareSlave/ModbuskaSlaveTester`, built with
 [PlatformIO](https://platformio.org/) on top of the
@@ -152,7 +152,7 @@ Coils start as `false`, discrete inputs alternate `true/false`, input registers 
    - Port name: your port (e.g. `COM3` or `/dev/ttyUSB0`)
    - Baud rate: `115200`, Data bits: `8`, Parity: `None`, Stop bits: `One`
 
-![CLI Screenshot](cliapp.png)
+![Modbuska.Example console menu](cliapp.png)
 
 ### Test scenarios
 
@@ -176,6 +176,86 @@ For every function use slave address `1`.
 ## Example project
 
 `Modbuska.Example` is a console app with a menu-based execution of all implemented Modbus functions through DI.
+It enables the console logger at `Trace` level, so you can watch every frame on the wire while you test.
+
+## Logging
+
+The library depends only on `Microsoft.Extensions.Logging.Abstractions` and does **not** configure any logging
+provider itself: `AddModbus()` intentionally does not call `AddLogging()`. The host application chooses and
+configures the providers (console, Serilog, etc.).
+
+Both `ModbusRtuService` and `SerialConnectionService` accept an optional `ILogger<T>` in their constructors. When no
+logger is provided, `NullLogger<T>.Instance` is used, so logging is completely optional and never throws.
+
+When a logger is wired up:
+
+- `Trace`: every TX/RX frame as hex
+- `Debug`: completed operations (slave, function, item count); validation failures (invalid address, count == 0,
+  limit exceeded)
+- `Warning`: transaction failures (serial port closed, rejected broadcast read, timeout, invalid CRC, Modbus
+  exception response with its code, write echo mismatch, response validation errors). The exception is passed along,
+  so its type and stack trace are preserved.
+- `Error`: serial port open/close failures
+- `Information`: serial port opened/closed (with port settings)
+
+All log messages use named template parameters in PascalCase (`SlaveId`, `Function`, `Frame`, `PortName`, ...), so the
+values are available as structured fields for Serilog / Elasticsearch / Kibana.
+
+### Enabling frame traces (console provider)
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Modbuska.ModbusManager.Extension;
+
+var services = new ServiceCollection();
+services.AddLogging(builder => builder
+    .AddConsole()
+    .SetMinimumLevel(LogLevel.Trace));
+services.AddModbus();
+```
+
+With `Trace` enabled you will see output like:
+
+```
+TX SlaveId=1 Function=ReadHoldingRegisters Frame=01 03 00 00 00 02 C4 0B
+RX SlaveId=1 Function=ReadHoldingRegisters Frame=01 03 04 00 0A 00 0B 9B F6
+```
+
+In a real application you usually want `Trace` for Modbuska only and a quieter level for everything else:
+
+```csharp
+services.AddLogging(builder => builder
+    .AddConsole()
+    .SetMinimumLevel(LogLevel.Warning)
+    .AddFilter("Modbuska", LogLevel.Trace));
+```
+
+### Serilog example
+
+Packages: `Serilog.Extensions.Logging` and `Serilog.Sinks.Console` (add a file or Elasticsearch sink the same way).
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Modbuska.ModbusManager.Extension;
+using Serilog;
+using Serilog.Events;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Modbuska", LogEventLevel.Verbose) // Serilog Verbose == Microsoft.Extensions.Logging Trace
+    .WriteTo.Console()
+    .CreateLogger();
+
+var services = new ServiceCollection();
+services.AddLogging(builder => builder.AddSerilog(dispose: true));
+services.AddModbus();
+```
+
+> **Warning:** `Trace` logs every frame on the wire, which includes device data such as slave addresses, function
+> codes, register values and CRC bytes. It also produces a high volume of records. Do not leave `Trace` enabled on
+> production systems with frequent traffic; keep the level at `Warning` or higher.
 
 ## Building and testing
 
@@ -193,13 +273,11 @@ Current limitations:
 - synchronous (blocking) API only
 - RTU master only
 - no RS-485 direction control options yet (works with USB-RS485 adapters that handle it automatically)
-- no built-in frame logging yet
 
 Planned:
 
 - simpler request API without a custom `ModbusMessage` subclass
 - typed error codes in results
-- hex trace logging of TX/RX frames
 - RS-485 settings (`RtsEnable`, `Handshake`)
 - async API with `CancellationToken`
 
