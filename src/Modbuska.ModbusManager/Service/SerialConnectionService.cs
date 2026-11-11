@@ -1,5 +1,6 @@
 ﻿using System.IO.Ports;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Modbuska.ModbusManager.Abstraction;
 using Modbuska.ModbusManager.Model;
 using Modbuska.ModbusManager.Results;
@@ -9,14 +10,17 @@ namespace Modbuska.ModbusManager.Service;
 /// <summary>
 ///     Provides a concrete implementation of <see cref="ISerialConnectionService" /> for communicating over a serial port.
 /// </summary>
-public sealed class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnectionService> logger)
+public sealed class SerialConnectionService(SerialPort serialPort, ILogger<SerialConnectionService>? logger = null)
     : ISerialConnectionService, IDisposable
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
-    private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly ILogger _logger = logger ?? NullLogger<SerialConnectionService>.Instance;
     private readonly SerialPort _serialPort = serialPort ?? throw new ArgumentNullException(nameof(serialPort));
     private bool _disposed;
 
+    /// <summary>
+    /// Dispose monitor
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
@@ -44,7 +48,7 @@ public sealed class SerialConnectionService(SerialPort serialPort, ILogger<Seria
         {
             _serialPort.DiscardOutBuffer();
             _serialPort.DiscardInBuffer();
-            _logger.LogInformation("Discard In / Out serial buffers.");
+            _logger.LogTrace("Discard In / Out serial buffers.");
         });
     }
 
@@ -102,7 +106,13 @@ public sealed class SerialConnectionService(SerialPort serialPort, ILogger<Seria
             try
             {
                 _serialPort.Open();
-                _logger.LogInformation("Serial port opened.");
+                _logger.LogInformation(
+                    "Serial port opened. PortName={PortName}, BaudRate={BaudRate}, DataBits={DataBits}, Parity={Parity}, StopBits={StopBits}",
+                    portSettings.PortName,
+                    portSettings.BaudRate,
+                    portSettings.DataBits,
+                    portSettings.Parity,
+                    portSettings.StopBits);
                 return OperationResult.Ok();
             }
             catch (Exception ex)
