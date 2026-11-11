@@ -11,8 +11,10 @@ namespace Modbuska.ModbusManager.Extension;
 public static class ModbusServiceCollectionExtensions
 {
     /// <summary>
-    ///     Registers all required Modbus services (serial connection, RTU service, and logging) with the dependency injection
+    ///     Registers all required Modbus services (serial connection and RTU service) with the dependency injection
     ///     container.
+    ///     The library does not configure any logging provider: the host application is responsible for calling
+    ///     <c>AddLogging()</c> and adding the desired providers.
     /// </summary>
     /// <param name="collection">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <returns>The same <see cref="IServiceCollection" /> for chaining.</returns>
@@ -21,7 +23,6 @@ public static class ModbusServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(collection);
 
-        collection.AddLogging();
         collection.AddSingleton<SerialPort>();
         collection.AddSingleton<SerialConnectionService>();
         collection.AddSingleton<ISerialConnectionService>(sp => sp.GetRequiredService<SerialConnectionService>());
