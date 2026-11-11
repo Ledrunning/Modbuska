@@ -57,18 +57,18 @@ public class ModbusExtensionTests
             Address = 0x11,
             Type = 0x05,
             Start = 0x0013,
-            Register = 0x0000 
+            Register = 0x0000
         };
 
         var frame = message.BuildMessage(0xFF00);
 
         Assert.Equal(ModbusFrame.MessageSize, frame.Length);
-        Assert.Equal(0x11, frame[ModbusFrame.AddressIndex]); 
-        Assert.Equal(0x05, frame[ModbusFrame.TypeIndex]);    
-        Assert.Equal(0x00, frame[ModbusFrame.StartIndexHigh]); 
-        Assert.Equal(0x13, frame[ModbusFrame.StartIndexLow]);  
-        Assert.Equal(0xFF, frame[ModbusFrame.RegisterIndexHigh]); 
-        Assert.Equal(0x00, frame[ModbusFrame.RegisterIndexLow]);  
+        Assert.Equal(0x11, frame[ModbusFrame.AddressIndex]);
+        Assert.Equal(0x05, frame[ModbusFrame.TypeIndex]);
+        Assert.Equal(0x00, frame[ModbusFrame.StartIndexHigh]);
+        Assert.Equal(0x13, frame[ModbusFrame.StartIndexLow]);
+        Assert.Equal(0xFF, frame[ModbusFrame.RegisterIndexHigh]);
+        Assert.Equal(0x00, frame[ModbusFrame.RegisterIndexLow]);
 
         var frameToCheck = (byte[])frame.Clone();
         frameToCheck[^2] = 0;
@@ -100,10 +100,10 @@ public class ModbusExtensionTests
         Assert.Equal(0x10, frame[ModbusFrame.TypeIndex]);
         Assert.Equal(0x04, frame[ModbusFrame.WriteRequestByteCountIndex]);
 
-        Assert.Equal(0x00, frame[7]); 
+        Assert.Equal(0x00, frame[7]);
         Assert.Equal(0x0A, frame[8]);
-        Assert.Equal(0x00, frame[9]); 
-        Assert.Equal(0x0B, frame[10]); 
+        Assert.Equal(0x00, frame[9]);
+        Assert.Equal(0x0B, frame[10]);
 
         var frameToCheck = (byte[])frame.Clone();
         frameToCheck[^2] = 0;
