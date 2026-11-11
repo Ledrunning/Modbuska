@@ -23,12 +23,18 @@ public sealed class ListLogger<T> : ILogger<T>
     /// <summary>
     ///     Returns <see cref="IsLoggingEnabled" /> for all levels.
     /// </summary>
-    public bool IsEnabled(LogLevel logLevel) => IsLoggingEnabled;
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        return IsLoggingEnabled;
+    }
 
     /// <summary>
     ///     Scopes are not used by the tests; returns a no-op disposable.
     /// </summary>
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+    {
+        return NullScope.Instance;
+    }
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
@@ -90,9 +96,15 @@ public sealed class TestLogger : ILogger
 
     public IList<(string Category, LogLevel Level, string Message)> Records => _records;
 
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+    {
+        return null;
+    }
 
-    public bool IsEnabled(LogLevel logLevel) => true;
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        return true;
+    }
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)

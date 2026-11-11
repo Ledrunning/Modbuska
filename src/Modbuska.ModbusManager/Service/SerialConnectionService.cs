@@ -19,14 +19,11 @@ public sealed class SerialConnectionService(SerialPort serialPort, ILogger<Seria
     private bool _disposed;
 
     /// <summary>
-    /// Dispose monitor
+    ///     Dispose monitor
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
+        if (_disposed) return;
 
         _lock.Dispose();
         _disposed = true;

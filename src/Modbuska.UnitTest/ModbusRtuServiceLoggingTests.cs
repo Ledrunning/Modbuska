@@ -10,8 +10,10 @@ namespace Modbuska.UnitTest;
 
 public sealed class ModbusRtuServiceLoggingTests
 {
-    private static ModbusMessageStub Msg(byte address, ushort start, ushort count) =>
-        new() { Address = address, Start = start, Register = count };
+    private static ModbusMessageStub Msg(byte address, ushort start, ushort count)
+    {
+        return new ModbusMessageStub { Address = address, Start = start, Register = count };
+    }
 
     private static byte[] BuildResponse(params byte[] payload)
     {
@@ -43,10 +45,12 @@ public sealed class ModbusRtuServiceLoggingTests
         var traceLogs = logger.Logs.Where(l => l.Level == LogLevel.Trace).ToList();
         Assert.Equal(2, traceLogs.Count);
 
-        var tx = Assert.Single(traceLogs, l => l.Message.StartsWith("TX SlaveId=1 Function=ReadHoldingRegisters Frame="));
+        var tx = Assert.Single(traceLogs,
+            l => l.Message.StartsWith("TX SlaveId=1 Function=ReadHoldingRegisters Frame="));
         Assert.Contains("01 03 00 00 00 02", tx.Message);
 
-        var rx = Assert.Single(traceLogs, l => l.Message.StartsWith("RX SlaveId=1 Function=ReadHoldingRegisters Frame="));
+        var rx = Assert.Single(traceLogs,
+            l => l.Message.StartsWith("RX SlaveId=1 Function=ReadHoldingRegisters Frame="));
         Assert.Contains("01 03 04 00 0A 00 0B", rx.Message);
 
         // Request is logged before the response.
@@ -170,7 +174,7 @@ public sealed class ModbusRtuServiceLoggingTests
     {
         // Arrange
         var fake = new FakeSerialConnectionService(BuildResponse(0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x0B));
-        var service = new ModbusRtuService(fake, null);
+        var service = new ModbusRtuService(fake);
 
         // Act
         var (result, registers) = service.SendFc3(Msg(0x01, 0, 2));
@@ -205,8 +209,8 @@ public sealed class ModbusRtuServiceLoggingTests
         services.AddLogging(builder => builder.AddProvider(provider));
         services.AddModbus();
         // Override serial connection with a fake that has the port closed.
-        services.AddSingleton<ISerialConnectionService>(
-            sp => new FakeSerialConnectionService(Array.Empty<byte>()) { IsSerialPortOpen = false });
+        services.AddSingleton<ISerialConnectionService>(sp => new FakeSerialConnectionService(Array.Empty<byte>())
+            { IsSerialPortOpen = false });
 
         using var sp = services.BuildServiceProvider();
         var modbusService = sp.GetRequiredService<ModbusRtuService>();
