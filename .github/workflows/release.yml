@@ -1,0 +1,51 @@
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write   # needed to create a release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Version from the tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: dotnet build src -c Release -p:Version=$VERSION
+
+      - name: Test
+        run: dotnet test src -c Release --no-build
+
+      - name: Package
+        run: |
+          mkdir artifacts
+
+          # The library itself
+          dotnet publish src/Modbuska.ModbusManager -c Release -p:Version=$VERSION -o out/lib
+          (cd out/lib && zip -r ../../artifacts/Modbuska-$VERSION.zip .)
+
+          # The console example, ready to run
+          for rid in win-x64 linux-x64; do
+            dotnet publish src/Modbuska.Example -c Release -r $rid --self-contained \
+              -p:Version=$VERSION -p:PublishSingleFile=true -o out/example-$rid
+            (cd out/example-$rid && zip -r ../../artifacts/Modbuska.Example-$VERSION-$rid.zip .)
+          done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then PRE="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --title "Modbuska $GITHUB_REF_NAME" --generate-notes $PRE
